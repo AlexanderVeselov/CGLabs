@@ -38,7 +38,7 @@ protected:
             size_t frac = 1;
             while (m_CurrentChar < m_CurrentLine.size() && m_CurrentLine[m_CurrentChar] >= '0' && m_CurrentLine[m_CurrentChar] <= '9')
             {
-                value += (float)((int)m_CurrentLine[m_CurrentChar++] - 48) / (pow(10, frac++));
+                value += (float)((int)m_CurrentLine[m_CurrentChar++] - 48) / (pow(10.0f, frac++));
             }
         }
 
@@ -269,7 +269,7 @@ unsigned int HashIntTriple(int a, int b, int c)
 }
 
 // Load from .obj
-Mesh::Mesh(const char* filename)
+Mesh::Mesh(const char* filename) : m_ModelToWorld(DirectX::XMMatrixIdentity())
 {
     ObjReader objReader(filename);
 
@@ -548,6 +548,7 @@ Vertex VertexLerp(const Vertex& v1, const Vertex& v2, float factor)
 
 }
 
+/*
 void MorphedMesh::Draw(float morphFactor)
 {
     assert(morphFactor >= 0.0f && morphFactor <= 1.0f);
@@ -606,3 +607,4 @@ void MorphedMesh::Draw(float morphFactor)
     render->GetDeviceContext()->DrawIndexed(m_Indices.size(), 0, 0);
 
 }
+*/

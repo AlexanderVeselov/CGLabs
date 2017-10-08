@@ -1,6 +1,19 @@
 #ifndef MATERIALSYSTEM_HPP
 #define MATERIALSYSTEM_HPP
 
+#include <d3d11.h>
+
+class MaterialSystem
+{
+public:
+    void Init();
+private:
+    ID3D11InputLayout* m_InputLayout;
+
+};
+
+extern MaterialSystem* materials;
+
 class Shader
 {
     Shader(const char* filename);

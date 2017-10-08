@@ -12,6 +12,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\gui.hpp" />
+    <ClInclude Include="..\src\inputsystem.hpp" />
     <ClInclude Include="..\src\materialsystem.hpp" />
     <ClInclude Include="..\src\mathlib.hpp" />
     <ClInclude Include="..\src\mesh.hpp" />
@@ -20,7 +21,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\gui.cpp" />
+    <ClCompile Include="..\src\inputsystem.cpp" />
     <ClCompile Include="..\src\main.cpp" />
+    <ClCompile Include="..\src\materialsystem.cpp" />
     <ClCompile Include="..\src\mesh.cpp" />
     <ClCompile Include="..\src\render.cpp" />
     <ClCompile Include="..\src\WICTextureLoader.cpp" />

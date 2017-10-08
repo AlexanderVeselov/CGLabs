@@ -1,5 +1,6 @@
 #include "render.hpp"
 #include "gui.hpp"
+#include "inputsystem.hpp"
 #include <Windows.h>
 
 #pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='x86' publicKeyToken='6595b64144ccf1df' language='*'\"")
@@ -7,10 +8,11 @@
 #define WINDOW_CLASS "WindowClass1"
 #define WINDOW_TITLE "CG Labs"
 
+#define GET_X_LPARAM(lp)                        ((int)(short)LOWORD(lp))
+#define GET_Y_LPARAM(lp)                        ((int)(short)HIWORD(lp))
+
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    //PAINTSTRUCT ps;
-    //HDC hdc;
 
     // sort through and find what code to run for the message given
     switch (message)
@@ -22,12 +24,14 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
     case WM_COMMAND:
         guimanager->UpdateElement((HWND)lParam);
         break;
-    //case WM_PAINT:
-    //    hdc = BeginPaint(hWnd, &ps);
-
-    //    TextOut(hdc, 0, 0, "Hello, Windows!", 15);
-
-    //    EndPaint(hWnd, &ps);
+    case WM_KEYDOWN:
+        input->KeyDown((unsigned int)wParam);
+        break;
+    case WM_KEYUP:
+        input->KeyUp((unsigned int)wParam);
+        break;
+    //case WM_MOUSEMOVE:
+    //    input->MousePos(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
     //    break;
     default:
         // Handle any messages the switch statement didn't

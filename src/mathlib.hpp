@@ -28,7 +28,7 @@ struct float3
     float3 operator- () { return float3(-x, -y, -z); }
 
     float operator[] (size_t i) const { return i == 0 ? x : (i == 1 ? y : z); }
-    float& operator[] (size_t i) { return i == 0 ? x : (i == 1 ? y : z); }
+    //float& operator[] (size_t i) { return i == 0 ? x : (i == 1 ? y : z); }
 //    friend std::ostream& operator<< (std::ostream &os, const float3 &vec) { return os << "(" << vec.x << ", " << vec.y << ", " << vec.z << ")"; }
 
     float x, y, z;
@@ -36,6 +36,39 @@ struct float3
 private:
     // Used for align to 4 bytes
     float w;
+
+};
+
+struct float2
+{
+    float2(float x, float y) : x(x), y(y) {}
+    float2(float val) : x(val), y(val) {}
+    float2() : x(0), y(0) {}
+
+    float length() { return sqrt(x*x + y*y); }
+    float2 normalize() { return float2(x / length(), y / length()); }
+
+    // Scalar operators
+    float2 operator+ (float scalar) { return float2(x + scalar, y + scalar); }
+    float2 operator- (float scalar) { return float2(x - scalar, y - scalar); }
+    float2 operator* (float scalar) { return float2(x * scalar, y * scalar); }
+    float2 operator/ (float scalar) { return float2(x / scalar, y / scalar); }
+
+    // Vector operators
+    float2 operator+ (const float2 &other) { return float2(x + other.x, y + other.y); }
+    float2 operator- (const float2 &other) { return float2(x - other.x, y - other.y); }
+    friend float2 operator- (const float2 &lhs, const float2 &rhs) { return float2(lhs.x - rhs.x, lhs.y - rhs.y); }
+
+    float2 operator+= (const float2 &other) { x += other.x; y += other.y; return *this; }
+    float2 operator*= (const float  &other) { x *= other;   y *= other;   return *this; }
+    float2 operator-= (const float2 &other) { x -= other.x; y -= other.y; return *this; }
+
+    float2 operator- () { return float2(-x, -y); }
+
+    float operator[] (size_t i) const { return i == 0 ? x : y; }
+    //float& operator[] (size_t i) { return i == 0 ? x : y; }
+
+    float x, y;
 
 };
 
@@ -47,6 +80,17 @@ inline float3 cross(float3 a, float3 b)
 inline float dot(float3 a, float3 b)
 {
     return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+template <typename T>
+T clamp(T value, T min, T max)
+{
+    if (value < min)
+        return min;
+    else if (value > max)
+        return max;
+    else
+        return value;
 }
 
 #endif // MATHLIB_HPP

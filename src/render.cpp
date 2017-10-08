@@ -2,13 +2,124 @@
 #include "mathlib.hpp"
 #include "WICTextureLoader.hpp"
 #include "mesh.hpp"
+#include "inputsystem.hpp"
 #include <d3dcompiler.h>
 #include <vector>
 
 Render g_Render;
 Render* render = &g_Render;
 
-#define TASK_2
+struct ViewSetup
+{
+    ViewSetup(float2 size = float2(100.0f, 100.0f), float3 origin = float3(-10.0f, 0.0f, 10.0f),
+        float3 target = float3(0.0f, 0.0f, 0.0f), float3 up = float3(0.0f, 0.0f, 1.0f),
+        bool ortho = false, float fov = DirectX::XM_PIDIV4, float farZ = 1024.0f, float nearZ = 4.0f);
+
+    void ComputeMatrices();
+
+    float2 size;
+    float3 origin;
+    float3 target;
+    float3 up;
+    bool ortho;
+    float fov;
+    float farZ;
+    float nearZ;
+
+    DirectX::XMMATRIX matView;
+    DirectX::XMMATRIX matProjection;
+    
+};
+
+
+ViewSetup::ViewSetup(float2 size,
+                     float3 origin,
+                     float3 target,
+                     float3 up,
+                     bool ortho,
+                     float fov,
+                     float farZ,
+                     float nearZ)
+    : size(size),
+      origin(origin),
+      target(target),
+      up(up),
+      ortho(ortho),
+      fov(fov),
+      farZ(farZ), nearZ(nearZ)
+{
+}
+
+void ViewSetup::ComputeMatrices()
+{
+    // View Matrix
+    //DirectX::XMVECTOR Eye = DirectX::XMVectorSet(0.0f, 10.0f, 10.0f, 0.0f);
+
+    //m_ViewPosition = float3(std::cosf(t)*10.0f, std::sinf(t) * 10.0f, std::cosf(t) * 2.0f + 5.0f);
+    DirectX::XMVECTOR Eye = DirectX::XMVectorSet(origin.x, origin.y, origin.z, 0.0f);
+    DirectX::XMVECTOR At = DirectX::XMVectorSet(target.x, target.y, target.z, 0.0f);
+    DirectX::XMVECTOR Up = DirectX::XMVectorSet(up.x, up.y, up.z, 0.0f);
+    matView = DirectX::XMMatrixLookAtLH(Eye, At, Up);
+
+    // Projection Matrix
+    if (ortho)
+    {
+        matProjection = DirectX::XMMatrixOrthographicLH(size.x, size.y, nearZ, farZ);
+    }
+    else
+    {
+        matProjection = DirectX::XMMatrixPerspectiveFovLH(fov, size.x / size.y, nearZ, farZ);
+    }
+}
+
+class Camera
+{
+public:
+    Camera(ViewSetup* view, const D3D11_VIEWPORT* viewport);
+    void Update();
+
+private:
+    ViewSetup *m_View;
+    const D3D11_VIEWPORT* m_Viewport;
+    float m_Pitch;
+    float m_Yaw;
+    float m_Speed;
+    
+};
+
+Camera::Camera(ViewSetup* view, const D3D11_VIEWPORT* viewport)
+    :   m_View(view),
+        m_Viewport(viewport),
+        m_Pitch(DirectX::XM_PIDIV2),
+        m_Yaw(0.0f),
+        m_Speed(0.01f)
+{
+    m_View->size = float2(viewport->Width, viewport->Height);
+}
+
+void Camera::Update()
+{
+    int frontback = input->IsKeyDown('W') - input->IsKeyDown('S');
+    int strafe = input->IsKeyDown('A') - input->IsKeyDown('D');
+    m_View->origin += float3(std::cosf(m_Yaw) * std::sinf(m_Pitch) * frontback + std::cosf(m_Yaw - DirectX::XM_PIDIV2) * strafe,
+        std::sinf(m_Yaw) * std::sinf(m_Pitch) * frontback + std::sinf(m_Yaw - DirectX::XM_PIDIV2) * strafe, std::cosf(m_Pitch) * frontback) * m_Speed;
+    
+    POINT point = { m_View->size.x / 2, m_View->size.y / 2 };
+    ClientToScreen(render->GetHWND(), &point);
+
+    unsigned short x, y;
+    input->GetMousePos(&x, &y);
+    float sensivity = 0.00075;
+
+    m_Yaw += (x - point.x) * sensivity;
+    m_Pitch += (y - point.y) * sensivity;
+    float epsilon = 0.0001f;
+    m_Pitch = clamp(m_Pitch, 0.0f + epsilon, DirectX::XM_PI - epsilon);
+    m_View->target = m_View->origin + float3(std::cosf(m_Yaw) * std::sinf(m_Pitch), std::sinf(m_Yaw) * std::sinf(m_Pitch), std::cosf(m_Pitch));
+
+    input->SetMousePos(point.x, point.y);
+
+}
 
 Render::Render() : m_hWnd(0),
                    m_D3DDevice(0),
@@ -16,7 +127,6 @@ Render::Render() : m_hWnd(0),
                    m_SwapChain(0),
                    m_RenderTargetView(0)
 {
-
 }
 
 void Render::InitD3D()
@@ -102,8 +212,7 @@ struct ConstantBuffer
 {
     DirectX::XMMATRIX matWorld;
     DirectX::XMMATRIX matViewProjection;
-
-
+    
 };
 
 struct PSConstantBuffer
@@ -121,11 +230,7 @@ void Render::InitScene()
     ID3DBlob* vertexShaderBuffer;
     ID3DBlob* pixelShaderBuffer;
 
-#ifdef TASK_1
-    LPCWSTR shadername = L"src/unlit.fx";
-#else
     LPCWSTR shadername = L"src/phong.fx";
-#endif
 
     if (FAILED(D3DCompileFromFile(shadername, nullptr, nullptr, "vs_main", "vs_5_0", 0, 0, &vertexShaderBuffer, &errorBlob)))
     {
@@ -144,23 +249,13 @@ void Render::InitScene()
     GetDeviceContext()->PSSetShader(m_PixelShader, nullptr, 0);
 
     // Create meshes
-#ifdef TASK_1
-    //m_Meshes.push_back(Mesh("meshes/teapot.obj"));
-    //m_Meshes.push_back(Mesh::CreateTetrahedron());
-    m_Meshes.push_back(Mesh("meshes/plane.obj"));
-    m_Meshes.push_back(Mesh("meshes/cylinder.obj"));
-    m_Meshes.push_back(Mesh("meshes/sphere.obj"));
-    m_Meshes.push_back(Mesh("meshes/tetrahedron.obj"));
-    m_Meshes.push_back(Mesh("meshes/torus.obj"));
-#else
     m_Meshes.push_back(Mesh("meshes/plane.obj"));
     m_Meshes.push_back(Mesh("meshes/cube.obj"));
     m_Meshes.push_back(Mesh("meshes/cone.obj"));
     m_Meshes.push_back(Mesh("meshes/sphere.obj"));
-
-#endif
-
-    m_MorphedMesh = new MorphedMesh();
+    
+    m_Views.push_back(ViewSetup());
+    m_Camera = std::make_unique<Camera>(&(m_Views.back()), &m_Viewport);
 
     // Set Input Layout
     D3D11_INPUT_ELEMENT_DESC layout[] =
@@ -200,12 +295,8 @@ void Render::InitScene()
     GetDevice()->CreateRasterizerState(&wireframeDesc, &m_WireframeRasterizer);
     
     ID3D11ShaderResourceView *textureView;
-#ifdef TASK_1
-    CreateWICTextureFromFile(GetDevice(), GetDeviceContext(), "textures/checker.jpg", nullptr, &textureView);
-#else
     CreateWICTextureFromFile(GetDevice(), GetDeviceContext(), "textures/brick.bmp", nullptr, &textureView);
-#endif
-
+    
     GetDeviceContext()->PSSetShaderResources(0, 1, &textureView);
 
     D3D11_SAMPLER_DESC sampDesc;
@@ -241,45 +332,11 @@ void Render::Init(HWND hWnd)
 
     InitD3D();
     InitScene();
-    
-#ifdef TASK_1
-    guimanager->AddCheckbox(50, 32, 160, "wireframe");
-    guimanager->AddTrackbar(50, 96, 160, "cylinder_x", -10.0f, 10.0f, 5.0f, 0.5f);
-    guimanager->AddTrackbar(50, 160, 160, "torus_rot", 0.0f, DirectX::XM_PIDIV2, 0.0f, DirectX::XM_PIDIV2 / 10.0f);
-    guimanager->AddTrackbar(50, 224, 160, "morph_factor", 0.0f, 1.0f, 0.0f, 0.05f);
-
-    guimanager->AddTrackbar(50, 288, 160, "tetrahedron_x", -10.0f, 10.0f, -7.0f, 0.5f);
-    guimanager->AddTrackbar(50, 352, 160, "tetrahedron_y", -10.0f, 10.0f, 0.0f, 0.5f);
-    guimanager->AddTrackbar(50, 416, 160, "tetrahedron_z",  0.0f, 5.0f, 0.0f, 0.5f);
-
-    guimanager->AddTrackbar(50, 480, 160, "torus_x", -10.0f, 10.0f, -7.0f, 0.5f);
-    guimanager->AddTrackbar(50, 544, 160, "torus_y", -10.0f, 10.0f, 0.0f, 0.5f);
-    guimanager->AddTrackbar(50, 608, 160, "torus_z",  0.0f, 5.0f, 3.5f, 0.5f);
-#else
-
-
-#endif
 
 }
 
 void Render::SetupView()
 {
-    unsigned int width = 1280;
-    unsigned int height = 720;
-    
-    // View Matrix
-    //DirectX::XMVECTOR Eye = DirectX::XMVectorSet(0.0f, 10.0f, 10.0f, 0.0f);
-
-    float t = GetTickCount() / 1000.0f;
-    m_ViewPosition = float3(std::cosf(t)*10.0f, std::sinf(t) * 10.0f, std::cosf(t) * 2.0f + 5.0f);
-    DirectX::XMVECTOR Eye = DirectX::XMVectorSet(m_ViewPosition.x, m_ViewPosition.y, m_ViewPosition.z, 0.0f);
-    DirectX::XMVECTOR At = DirectX::XMVectorSet(0.0f, 0.0f, 2.0f, 0.0f);
-    DirectX::XMVECTOR Up = DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
-    m_MatView = DirectX::XMMatrixLookAtLH(Eye, At, Up);
-
-    // Projection Matrix
-    m_MatProjection = DirectX::XMMatrixPerspectiveFovLH(DirectX::XM_PIDIV4, width / (float)height, 0.01f, 100.0f);
-    
 }
 
 void Render::RenderFrame()
@@ -288,101 +345,34 @@ void Render::RenderFrame()
     GetDeviceContext()->ClearRenderTargetView(m_RenderTargetView, clearColor);
     GetDeviceContext()->ClearDepthStencilView(m_DepthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);
 
-#ifdef TASK_1
-    if (guimanager->GetElementByName<Checkbox>("wireframe")->IsChecked())
-    {
-        GetDeviceContext()->RSSetState(m_WireframeRasterizer);
-    }
-    else
-    {
-        GetDeviceContext()->RSSetState(nullptr);
-    }
-#endif
+    m_Camera->Update();
 
-    SetupView();
-    ConstantBuffer cb;
-    cb.matViewProjection = DirectX::XMMatrixTranspose(m_MatView * m_MatProjection);
-    
-#ifdef TASK_1
-    cb.matWorld = DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(0, 0, 2));
-    GetDeviceContext()->OMSetBlendState(nullptr, 0, 0xffffffff);
-    GetDeviceContext()->UpdateSubresource(m_ConstantBuffer, 0, nullptr, &cb, 0, 0);
-    GetDeviceContext()->VSSetConstantBuffers(0, 1, &m_ConstantBuffer);
-    m_MorphedMesh->Draw(guimanager->GetElementByName<Trackbar>("morph_factor")->GetValue());
+    ViewSetup& view = m_Views.back();
+    view.ComputeMatrices();
 
-    for (int i = 0; i < m_Meshes.size(); ++i)
-    {
-        GetDeviceContext()->OMSetBlendState(nullptr, 0, 0xffffffff);
-        DirectX::XMMATRIX matModel = DirectX::XMMatrixIdentity();
-        
-        if (i == 1) // Cylinder
-        {
-            matModel = DirectX::XMMatrixTranslation(guimanager->GetElementByName<Trackbar>("cylinder_x")->GetValue(), 0, 0);
-        }
-        else if(i == 2) // Sphere
-        {
-            matModel = DirectX::XMMatrixTranslation(5, 5, 0);
-        }
-        else if(i == 3) // Tetrahedron
-        {
-            float x = guimanager->GetElementByName<Trackbar>("tetrahedron_x")->GetValue();
-            float y = guimanager->GetElementByName<Trackbar>("tetrahedron_y")->GetValue();
-            float z = guimanager->GetElementByName<Trackbar>("tetrahedron_z")->GetValue();
-            matModel = DirectX::XMMatrixTranslation(x, y, z);
-        }
-        else if (i == 4) // Torus
-        {
-            matModel = DirectX::XMMatrixRotationX(guimanager->GetElementByName<Trackbar>("torus_rot")->GetValue());
-            float x = guimanager->GetElementByName<Trackbar>("torus_x")->GetValue();
-            float y = guimanager->GetElementByName<Trackbar>("torus_y")->GetValue();
-            float z = guimanager->GetElementByName<Trackbar>("torus_z")->GetValue();
-            matModel *= DirectX::XMMatrixTranslation(x, y, z);
-        }
-        //matModel *= DirectX::XMMatrixTranslation(0.0f, 0.0f, -2.0f);
-        cb.matWorld = DirectX::XMMatrixTranspose(matModel);
-        GetDeviceContext()->UpdateSubresource(m_ConstantBuffer, 0, nullptr, &cb, 0, 0);
-        GetDeviceContext()->VSSetConstantBuffers(0, 1, &m_ConstantBuffer);
-        if (i == 4)
-        {
-            GetDeviceContext()->OMSetBlendState(m_OpacityBlend, 0, 0xffffffff);
-        }
+    ConstantBuffer vscb;
+    vscb.matViewProjection = DirectX::XMMatrixTranspose(view.matView * view.matProjection);
 
-        m_Meshes[i].Draw();
-    }
-#else
     PSConstantBuffer pscb;
     float t = GetTickCount() / 1000.0f;
-
-    pscb.lightPositions[0] = float3(cos(1.321 * t), sin(0.923 * t), 1.0f) * 5.0f;
+    pscb.lightPositions[0] = float3(cos(1.321f * t), sin(0.923f * t), 1.0f) * 5.0f;
     pscb.lightColors[0] = float3(1.0f, 0, 0);
 
-    pscb.lightPositions[1] = float3(cos(2.321 * t)* 2.0f, sin(2.125 * t) * 2.0f, 1.0f) * 5.0f;
-    pscb.lightColors[1] = float3(0, 1.0f, 0);
+    pscb.lightPositions[1] = float3(cos(2.321f * t)* 2.0f, sin(2.125f * t) * 2.0f, 1.0f) * 5.0f;
+    pscb.lightColors[1] = float3(0.0f, 1.0f, 0);
 
-    pscb.lightPositions[2] = float3(cos(0.752 * t) * 3.0f, sin(3.687 * t) * 3.0f, 1.0f) * 5.0f;
-    pscb.lightColors[2] = float3(0, 0, 1.0f);
+    pscb.lightPositions[2] = float3(cos(0.752f * t) * 3.0f, sin(3.687f * t) * 3.0f, 1.0f) * 5.0f;
+    pscb.lightColors[2] = float3(0.0f, 0.0f, 1.0f);
+    pscb.phongScale = 1.0f;
 
-    pscb.viewPosition = m_ViewPosition;
+    pscb.viewPosition = view.origin;
 
-    for (int i = 0; i < m_Meshes.size(); ++i)
+    for (unsigned int i = 0; i < m_Meshes.size(); ++i)
     {
         GetDeviceContext()->OMSetBlendState(nullptr, 0, 0xffffffff);
-        DirectX::XMMATRIX matModel = DirectX::XMMatrixIdentity();
-        pscb.phongScale = 0.0f;
-        if (i == 1) // Cube
-        {
-        }
-        else if (i == 2) // Cone
-        {
-            matModel = DirectX::XMMatrixTranslation(5, 5, 0);
-            pscb.phongScale = 1.0f;
-        }
-        else if (i == 3) // Sphere
-        {
-            GetDeviceContext()->OMSetBlendState(m_OpacityBlend, 0, 0xffffffff);
-        }
-        cb.matWorld = DirectX::XMMatrixTranspose(matModel);
-        GetDeviceContext()->UpdateSubresource(m_ConstantBuffer, 0, nullptr, &cb, 0, 0);
+
+        vscb.matWorld = DirectX::XMMatrixTranspose(m_Meshes[i].GetModelToWorld());
+        GetDeviceContext()->UpdateSubresource(m_ConstantBuffer, 0, nullptr, &vscb, 0, 0);
         GetDeviceContext()->VSSetConstantBuffers(0, 1, &m_ConstantBuffer);
 
         GetDeviceContext()->UpdateSubresource(m_PSConstantBuffer, 0, nullptr, &pscb, 0, 0);
@@ -390,10 +380,9 @@ void Render::RenderFrame()
 
         m_Meshes[i].Draw();
     }
-#endif
-
-    
+        
     m_SwapChain->Present(0, 0);
+
 }
 
 void Render::Shutdown()
