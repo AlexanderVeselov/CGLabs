@@ -20,6 +20,16 @@ struct Vertex
 
 };
 
+class Material;
+
+struct MeshGroup_t
+{
+    unsigned int startIndex;
+    unsigned int indexCount;
+    std::shared_ptr<Material> material;
+
+};
+
 class Mesh
 {
 public:
@@ -46,6 +56,7 @@ private:
 
     std::vector<Vertex> m_Vertices;
     std::vector<unsigned int> m_Indices;
+    std::vector<MeshGroup_t> m_MeshGroups;
 
     DirectX::XMMATRIX m_ModelToWorld;
 

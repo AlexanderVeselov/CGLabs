@@ -19,6 +19,27 @@ class MorphedMesh;
 class Camera;
 struct ViewSetup;
 
+struct ViewSetup
+{
+    ViewSetup(float2 size = float2(100.0f, 100.0f), float3 origin = float3(-10.0f, 0.0f, 10.0f),
+        float3 target = float3(0.0f, 0.0f, 0.0f), float3 up = float3(0.0f, 0.0f, 1.0f),
+        bool ortho = false, float fov = DirectX::XM_PIDIV4, float farZ = 1024.0f, float nearZ = 4.0f);
+
+    void ComputeMatrices();
+
+    float2 size;
+    float3 origin;
+    float3 target;
+    float3 up;
+    bool ortho;
+    float fov;
+    float farZ;
+    float nearZ;
+
+    DirectX::XMMATRIX matView;
+    DirectX::XMMATRIX matProjection;
+
+};
 
 class Render
 {
@@ -30,6 +51,9 @@ public:
     const HWND GetHWND() const { return m_hWnd; }
     ID3D11Device* GetDevice() const { return m_D3DDevice; }
     ID3D11DeviceContext* GetDeviceContext() const { return m_DeviceContext; }    
+    const ViewSetup* GetCurrentView() const { return &m_ViewStack.back(); }
+    void PushView(ViewSetup& view) { view.ComputeMatrices(); m_ViewStack.push_back(view); }
+    void PopView() { m_ViewStack.pop_back(); }
 
 private:
     void InitD3D();
@@ -44,17 +68,10 @@ private:
     ID3D11RenderTargetView* m_RenderTargetView;
     ID3D11DepthStencilView* m_DepthStencilView;
     
-    ID3D11Buffer* m_ConstantBuffer;
-    ID3D11Buffer* m_PSConstantBuffer;
-    ID3D11VertexShader* m_VertexShader;
-    ID3D11PixelShader* m_PixelShader;
-    ID3D11InputLayout* m_InputLayout;
-    
-    ID3D11RasterizerState* m_WireframeRasterizer;
     ID3D11BlendState* m_OpacityBlend;
 
     std::vector<Mesh> m_Meshes;
-    std::vector<ViewSetup> m_Views;
+    std::vector<ViewSetup> m_ViewStack;
 
     std::unique_ptr<Camera> m_Camera;
 

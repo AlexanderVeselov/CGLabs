@@ -1,6 +1,7 @@
 #include "mesh.hpp"
 #include "mathlib.hpp"
 #include "render.hpp"
+#include "materialsystem.hpp"
 #include <cctype>
 #include <fstream>
 #include <string>
@@ -84,11 +85,16 @@ protected:
     {
         SkipSpaces();
         m_StringValue.clear();
-        while (m_CurrentChar < m_CurrentLine.size() && (m_CurrentLine[m_CurrentChar] >= 'a' && m_CurrentLine[m_CurrentChar] <= 'z' ||
-            m_CurrentLine[m_CurrentChar] >= 'A' && m_CurrentLine[m_CurrentChar] <= 'Z'))
+
+        if (m_CurrentChar < m_CurrentLine.size() && IsIdentifierStart(m_CurrentLine[m_CurrentChar]))
         {
             m_StringValue += m_CurrentLine[m_CurrentChar++];
+            while (m_CurrentChar < m_CurrentLine.size() && IsIdentifierBody(m_CurrentLine[m_CurrentChar]))
+            {
+                m_StringValue += m_CurrentLine[m_CurrentChar++];
+            }
         }
+
     }
 
     bool ReadLine()
@@ -114,6 +120,17 @@ protected:
     {
         SkipSpaces();
         while (m_CurrentLine[m_CurrentChar] == symbol) { m_CurrentChar++; }
+    }
+
+    bool IsIdentifierStart(char symbol)
+    {
+        return symbol >= 'a' && symbol <= 'z' ||
+            symbol >= 'A' && symbol <= 'Z' || symbol == '_';
+    }
+
+    bool IsIdentifierBody(char symbol)
+    {
+        return IsIdentifierStart(symbol) || symbol >= '0' && symbol <= '9';
     }
 
 private:
@@ -285,13 +302,23 @@ Mesh::Mesh(const char* filename) : m_ModelToWorld(DirectX::XMMatrixIdentity())
     std::map<unsigned int, unsigned int> indexDictionary;
     std::map<unsigned int, unsigned int>::iterator iter;
 
+    MeshGroup_t meshGroup;
+    meshGroup.startIndex = 0;
+    meshGroup.indexCount = 0;
+    meshGroup.material = nullptr;
+
     while ((token = objReader.NextToken()) != ObjReader::OBJ_EOF)
     {
         switch (token)
         {
-        case ObjReader::OBJ_MTLLIB:
-            // Do nothing
-            // LoadMtlFile(("meshes/" + objReader.GetStringValue() + ".mtl").c_str());
+        case ObjReader::OBJ_USEMTL:
+            if (meshGroup.indexCount > 0)
+            {
+                m_MeshGroups.push_back(meshGroup);
+            }
+            meshGroup.material = materials->FindMaterial(objReader.GetStringValue().c_str());
+            meshGroup.startIndex = m_Indices.size();
+            meshGroup.indexCount = 0;
             break;
         case ObjReader::OBJ_POSITION:
             positions.push_back(DirectX::XMFLOAT3(objReader.GetVectorValue().x, objReader.GetVectorValue().y, objReader.GetVectorValue().z));
@@ -302,10 +329,6 @@ Mesh::Mesh(const char* filename) : m_ModelToWorld(DirectX::XMMatrixIdentity())
             break;
         case ObjReader::OBJ_TEXCOORD:
             texcoords.push_back(DirectX::XMFLOAT2(1.0f - objReader.GetVectorValue().x, 1.0f - objReader.GetVectorValue().y));
-            break;
-        case ObjReader::OBJ_USEMTL:
-            // Do nothing
-            // currentMaterial = materials[objReader.GetStringValue()];
             break;
         case ObjReader::OBJ_FACE:
             const unsigned int *iv, *it, *in;
@@ -323,8 +346,9 @@ Mesh::Mesh(const char* filename) : m_ModelToWorld(DirectX::XMMatrixIdentity())
                 {
                     indexDictionary[triple] = newIndex;
                     m_Vertices.push_back(Vertex(positions[iv[i]], texcoords[it[i]], normals[in[i]]));
+                    ++meshGroup.indexCount;
                     m_Indices.push_back(newIndex);
-                    newIndex++;
+                    ++newIndex;
                 }
 
             }
@@ -335,6 +359,8 @@ Mesh::Mesh(const char* filename) : m_ModelToWorld(DirectX::XMMatrixIdentity())
             break;
         }
     }
+
+    m_MeshGroups.push_back(meshGroup);
     
     InitBuffers();
 
@@ -350,9 +376,26 @@ void Mesh::Draw() const
 {
     UINT stride = sizeof(Vertex);
     UINT offset = 0;
+
     render->GetDeviceContext()->IASetVertexBuffers(0, 1, &m_VertexBuffer, &stride, &offset);
     render->GetDeviceContext()->IASetIndexBuffer(m_IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
-    render->GetDeviceContext()->DrawIndexed(m_Indices.size(), 0, 0);
+
+    for (unsigned int i = 0; i < m_MeshGroups.size(); ++i)
+    {
+        const MeshGroup_t& meshGroup = m_MeshGroups[i];
+
+        Material::VSConstantBuffer vscb;
+        const ViewSetup* view = render->GetCurrentView();        
+        vscb.matViewProjection = DirectX::XMMatrixTranspose(view->matView * view->matProjection);
+        vscb.matWorld = m_ModelToWorld;
+
+        Material::PSConstantBuffer pscb;
+        pscb.viewPosition = view->origin;
+        meshGroup.material->SetMaterial(vscb, pscb);
+
+        render->GetDeviceContext()->DrawIndexed(m_Indices.size(), 0, 0);
+
+    }
 
 }
 

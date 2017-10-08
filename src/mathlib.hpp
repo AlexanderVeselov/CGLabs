@@ -1,6 +1,8 @@
 #ifndef MATHLIB_HPP
 #define MATHLIB_HPP
 
+#include <cmath>
+
 struct float3
 {
     float3(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
