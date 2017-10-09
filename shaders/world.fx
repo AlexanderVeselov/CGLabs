@@ -46,7 +46,7 @@ VS_OUTPUT vs_main(VS_INPUT Input)
 
 float4 ps_main(VS_OUTPUT Input) : SV_Target
 {
-
+    return dot(normalize(viewPosition.xyz - Input.WorldPos), Input.Normal);
     float3 albedo = txDiffuse.Sample(samLinear, Input.Texcoord).xyz;
 
     return float4(albedo, 1.0f);

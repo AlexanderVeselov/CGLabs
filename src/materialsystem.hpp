@@ -42,6 +42,8 @@ public:
 
 private:
     ID3D11ShaderResourceView* m_TextureView;
+    std::string name;
+
 };
 
 class Material
@@ -83,6 +85,7 @@ public:
    
 private:
     Texture* m_Albedo;
+    ID3D11SamplerState* m_SamplerState;
 
 };
 
@@ -96,10 +99,10 @@ public:
     PixelShader* FindPixelShader(const char* filename);
         
 private:
-    std::map<const char*, std::shared_ptr<Material> > m_Materials;
-    std::map<const char*, Texture>  m_Textures;
-    std::map<const char*, VertexShader> m_VertexShaders;
-    std::map<const char*, PixelShader>  m_PixelShaders;
+    std::map<std::string, std::shared_ptr<Material> > m_Materials;
+    std::map<std::string, Texture>  m_Textures;
+    std::map<std::string, VertexShader> m_VertexShaders;
+    std::map<std::string, PixelShader>  m_PixelShaders;
     
 };
 

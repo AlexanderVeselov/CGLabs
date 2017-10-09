@@ -4,7 +4,7 @@
 InputSystem g_InputSystem;
 InputSystem* input = &g_InputSystem;
 
-InputSystem::InputSystem()
+InputSystem::InputSystem() : m_Mouse(0)
 {
     for (unsigned int i = 0; i < 255; ++i)
     {
@@ -40,4 +40,19 @@ void InputSystem::GetMousePos(unsigned short* x, unsigned short* y) const
     *x = point.x;
     *y = point.y;
 
+}
+
+void InputSystem::MousePressed(unsigned int button)
+{
+    m_Mouse |= button;
+}
+
+void InputSystem::MouseReleased(unsigned int button)
+{
+    m_Mouse &= ~button;
+}
+
+bool InputSystem::IsMousePressed(unsigned int button) const
+{
+    return m_Mouse & button;
 }

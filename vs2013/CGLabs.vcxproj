@@ -17,6 +17,7 @@
     <ClInclude Include="..\src\mathlib.hpp" />
     <ClInclude Include="..\src\mesh.hpp" />
     <ClInclude Include="..\src\render.hpp" />
+    <ClInclude Include="..\src\utils.hpp" />
     <ClInclude Include="..\src\WICTextureLoader.hpp" />
   </ItemGroup>
   <ItemGroup>

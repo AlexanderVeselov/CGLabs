@@ -80,20 +80,23 @@ void Camera::Update()
     m_View.origin += float3(std::cosf(m_Yaw) * std::sinf(m_Pitch) * frontback + std::cosf(m_Yaw - DirectX::XM_PIDIV2) * strafe,
         std::sinf(m_Yaw) * std::sinf(m_Pitch) * frontback + std::sinf(m_Yaw - DirectX::XM_PIDIV2) * strafe, std::cosf(m_Pitch) * frontback) * m_Speed;
     
-    POINT point = { m_View.size.x / 2, m_View.size.y / 2 };
-    ClientToScreen(render->GetHWND(), &point);
+    if (input->IsMousePressed(MK_RBUTTON))
+    {
+        POINT point = { m_View.size.x / 2, m_View.size.y / 2 };
+        ClientToScreen(render->GetHWND(), &point);
 
-    unsigned short x, y;
-    input->GetMousePos(&x, &y);
-    float sensivity = 0.00075;
+        unsigned short x, y;
+        input->GetMousePos(&x, &y);
+        float sensivity = 0.00075;
 
-    m_Yaw += (x - point.x) * sensivity;
-    m_Pitch += (y - point.y) * sensivity;
-    float epsilon = 0.0001f;
-    m_Pitch = clamp(m_Pitch, 0.0f + epsilon, DirectX::XM_PI - epsilon);
-    m_View.target = m_View.origin + float3(std::cosf(m_Yaw) * std::sinf(m_Pitch), std::sinf(m_Yaw) * std::sinf(m_Pitch), std::cosf(m_Pitch));
+        m_Yaw += (x - point.x) * sensivity;
+        m_Pitch += (y - point.y) * sensivity;
+        float epsilon = 0.0001f;
+        m_Pitch = clamp(m_Pitch, 0.0f + epsilon, DirectX::XM_PI - epsilon);
+        m_View.target = m_View.origin + float3(std::cosf(m_Yaw) * std::sinf(m_Pitch), std::sinf(m_Yaw) * std::sinf(m_Pitch), std::cosf(m_Pitch));
 
-    input->SetMousePos(point.x, point.y);
+        input->SetMousePos(point.x, point.y);
+    }
     
 }
 
@@ -182,51 +185,28 @@ void Render::InitD3D()
     GetDeviceContext()->OMSetRenderTargets(1, &m_RenderTargetView, m_DepthStencilView);
     GetDeviceContext()->RSSetViewports(1, &m_Viewport);
 
+    GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
 }
 
-
-
 void Render::InitScene()
-{
-
+{    
     // Create meshes
     //m_Meshes.push_back(Mesh("meshes/plane.obj"));
     //m_Meshes.push_back(Mesh("meshes/cube.obj"));
     //m_Meshes.push_back(Mesh("meshes/cone.obj"));
     //m_Meshes.push_back(Mesh("meshes/sphere.obj"));
-    m_Meshes.push_back(Mesh("meshes/box_textured.obj"));
+    try
+    {
+        m_Meshes.push_back(Mesh("meshes/cube2.obj"));
+    }
+    catch (std::exception& ex)
+    {
+        MessageBox(render->GetHWND(), ex.what(), "Error", MB_OK);
+    }
     
     m_Camera = std::make_unique<Camera>(&m_Viewport);
-        
-    // Create Constant Buffer
-    
-    GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    
-    D3D11_SAMPLER_DESC sampDesc;
-    ZeroMemory(&sampDesc, sizeof(sampDesc));
-    sampDesc.Filter   = D3D11_FILTER_ANISOTROPIC;
-    sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-    sampDesc.MinLOD = 0;
-    sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-    GetDevice()->CreateSamplerState(&sampDesc, &m_SamplerLinear);
-    GetDeviceContext()->PSSetSamplers(0, 1, &m_SamplerLinear);
-
-    D3D11_BLEND_DESC omDesc;
-    ZeroMemory(&omDesc, sizeof(D3D11_BLEND_DESC));
-    omDesc.RenderTarget[0].BlendEnable = true;
-    omDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
-    omDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
-    omDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-    omDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-    omDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
-    omDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-    omDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-
-    GetDevice()->CreateBlendState(&omDesc, &m_OpacityBlend);
-    
+  
 }
 
 void Render::Init(HWND hWnd)

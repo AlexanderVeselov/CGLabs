@@ -30,6 +30,18 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
     case WM_KEYUP:
         input->KeyUp((unsigned int)wParam);
         break;
+    case WM_LBUTTONDOWN:
+        input->MousePressed(MK_LBUTTON);
+        break;
+    case WM_LBUTTONUP:
+        input->MouseReleased(MK_LBUTTON);
+        break;
+    case WM_RBUTTONDOWN:
+        input->MousePressed(MK_RBUTTON);
+        break;
+    case WM_RBUTTONUP:
+        input->MouseReleased(MK_RBUTTON);
+        break;
     //case WM_MOUSEMOVE:
     //    input->MousePos(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
     //    break;

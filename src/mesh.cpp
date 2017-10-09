@@ -2,15 +2,22 @@
 #include "mathlib.hpp"
 #include "render.hpp"
 #include "materialsystem.hpp"
+#include "utils.hpp"
 #include <cctype>
 #include <fstream>
 #include <string>
+
 
 class FileReader
 {
 public:
     FileReader(const char* filename) : m_InputFile(filename), m_VectorValue(0.0f)
     {
+        if (!m_InputFile)
+        {
+            THROW_RUNTIME("Failed to load object file " << filename)
+
+        }
     }
 
     std::string GetStringValue() const
@@ -346,20 +353,22 @@ Mesh::Mesh(const char* filename) : m_ModelToWorld(DirectX::XMMatrixIdentity())
                 {
                     indexDictionary[triple] = newIndex;
                     m_Vertices.push_back(Vertex(positions[iv[i]], texcoords[it[i]], normals[in[i]]));
-                    ++meshGroup.indexCount;
                     m_Indices.push_back(newIndex);
                     ++newIndex;
                 }
-
+                ++meshGroup.indexCount;
             }
-
             break;
         case ObjReader::OBJ_SMOOTHINGGROUP:
-
             break;
         }
     }
 
+    // No material information in .obj file
+    if (meshGroup.material == nullptr)
+    {
+        meshGroup.material = materials->FindMaterial("debug_checker");
+    }
     m_MeshGroups.push_back(meshGroup);
     
     InitBuffers();
@@ -380,20 +389,18 @@ void Mesh::Draw() const
     render->GetDeviceContext()->IASetVertexBuffers(0, 1, &m_VertexBuffer, &stride, &offset);
     render->GetDeviceContext()->IASetIndexBuffer(m_IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
 
+    const ViewSetup* view = render->GetCurrentView();
+    Material::VSConstantBuffer vscb;
+    vscb.matViewProjection = DirectX::XMMatrixTranspose(view->matView * view->matProjection);
+    vscb.matWorld = m_ModelToWorld;
+    Material::PSConstantBuffer pscb;
+    pscb.viewPosition = view->origin;
+
     for (unsigned int i = 0; i < m_MeshGroups.size(); ++i)
     {
         const MeshGroup_t& meshGroup = m_MeshGroups[i];
-
-        Material::VSConstantBuffer vscb;
-        const ViewSetup* view = render->GetCurrentView();        
-        vscb.matViewProjection = DirectX::XMMatrixTranspose(view->matView * view->matProjection);
-        vscb.matWorld = m_ModelToWorld;
-
-        Material::PSConstantBuffer pscb;
-        pscb.viewPosition = view->origin;
         meshGroup.material->SetMaterial(vscb, pscb);
-
-        render->GetDeviceContext()->DrawIndexed(m_Indices.size(), 0, 0);
+        render->GetDeviceContext()->DrawIndexed(meshGroup.indexCount, meshGroup.startIndex, 0);
 
     }
 

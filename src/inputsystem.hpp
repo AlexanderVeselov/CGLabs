@@ -11,9 +11,13 @@ public:
     void SetMousePos(unsigned short x, unsigned short y) const;
     bool IsKeyDown(unsigned int) const;
     void GetMousePos(unsigned short *x, unsigned short *y) const;
+    void MousePressed(unsigned int button);
+    void MouseReleased(unsigned int button);
+    bool IsMousePressed(unsigned int button) const;
 
 private:
     bool m_Keys[256];
+    unsigned int m_Mouse;
 
 };
 
