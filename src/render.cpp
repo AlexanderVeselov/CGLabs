@@ -29,9 +29,6 @@ ViewSetup::ViewSetup(float2 size,
 void ViewSetup::ComputeMatrices()
 {
     // View Matrix
-    //DirectX::XMVECTOR Eye = DirectX::XMVectorSet(0.0f, 10.0f, 10.0f, 0.0f);
-
-    //m_ViewPosition = float3(std::cosf(t)*10.0f, std::sinf(t) * 10.0f, std::cosf(t) * 2.0f + 5.0f);
     DirectX::XMVECTOR Eye = DirectX::XMVectorSet(origin.x, origin.y, origin.z, 0.0f);
     DirectX::XMVECTOR At = DirectX::XMVectorSet(target.x, target.y, target.z, 0.0f);
     DirectX::XMVECTOR Up = DirectX::XMVectorSet(up.x, up.y, up.z, 0.0f);
@@ -75,29 +72,33 @@ Camera::Camera(const D3D11_VIEWPORT* viewport)
 
 void Camera::Update()
 {
-    int frontback = input->IsKeyDown('W') - input->IsKeyDown('S');
-    int strafe = input->IsKeyDown('A') - input->IsKeyDown('D');
-    m_View.origin += float3(std::cosf(m_Yaw) * std::sinf(m_Pitch) * frontback + std::cosf(m_Yaw - DirectX::XM_PIDIV2) * strafe,
-        std::sinf(m_Yaw) * std::sinf(m_Pitch) * frontback + std::sinf(m_Yaw - DirectX::XM_PIDIV2) * strafe, std::cosf(m_Pitch) * frontback) * m_Speed;
-    
-    if (input->IsMousePressed(MK_RBUTTON))
+    static POINT point = { 0, 0 };
+    unsigned short x, y;
+    input->GetMousePos(&x, &y);
+    POINT mouseClient = { x, y };
+    ScreenToClient(render->GetHWND(), &mouseClient);
+
+    if (input->IsMousePressed(MK_RBUTTON) && mouseClient.x > 0 && mouseClient.y > 0 && mouseClient.x < m_Viewport->Width && mouseClient.y < m_Viewport->Height)
     {
-        POINT point = { m_View.size.x / 2, m_View.size.y / 2 };
-        ClientToScreen(render->GetHWND(), &point);
-
-        unsigned short x, y;
-        input->GetMousePos(&x, &y);
         float sensivity = 0.00075;
-
         m_Yaw += (x - point.x) * sensivity;
         m_Pitch += (y - point.y) * sensivity;
         float epsilon = 0.0001f;
         m_Pitch = clamp(m_Pitch, 0.0f + epsilon, DirectX::XM_PI - epsilon);
-        m_View.target = m_View.origin + float3(std::cosf(m_Yaw) * std::sinf(m_Pitch), std::sinf(m_Yaw) * std::sinf(m_Pitch), std::cosf(m_Pitch));
-
         input->SetMousePos(point.x, point.y);
     }
+    else
+    {
+        point = { x, y };
+    }
     
+    int frontback = input->IsKeyDown('W') - input->IsKeyDown('S');
+    int strafe = input->IsKeyDown('A') - input->IsKeyDown('D');
+    m_View.origin += float3(std::cosf(m_Yaw) * std::sinf(m_Pitch) * frontback + std::cosf(m_Yaw - DirectX::XM_PIDIV2) * strafe,
+        std::sinf(m_Yaw) * std::sinf(m_Pitch) * frontback + std::sinf(m_Yaw - DirectX::XM_PIDIV2) * strafe, std::cosf(m_Pitch) * frontback) * m_Speed;
+    m_View.target = m_View.origin + float3(std::cosf(m_Yaw) * std::sinf(m_Pitch), std::sinf(m_Yaw) * std::sinf(m_Pitch), std::cosf(m_Pitch));
+
+
 }
 
 Render::Render() : m_hWnd(0),
@@ -232,11 +233,9 @@ void Render::RenderFrame()
 
     PushView(m_Camera->GetView());
     
-    for (unsigned int i = 0; i < m_Meshes.size(); ++i)
+    for (std::vector<Mesh>::iterator it = m_Meshes.begin(); it != m_Meshes.end(); ++it)
     {
-        //GetDeviceContext()->OMSetBlendState(nullptr, 0, 0xffffffff);
-                
-        m_Meshes[i].Draw();
+        it->Draw();
     }
     
     PopView();

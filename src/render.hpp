@@ -23,7 +23,7 @@ struct ViewSetup
 {
     ViewSetup(float2 size = float2(100.0f, 100.0f), float3 origin = float3(-10.0f, 0.0f, 10.0f),
         float3 target = float3(0.0f, 0.0f, 0.0f), float3 up = float3(0.0f, 0.0f, 1.0f),
-        bool ortho = false, float fov = DirectX::XM_PIDIV4, float farZ = 1024.0f, float nearZ = 4.0f);
+        bool ortho = false, float fov = DirectX::XM_PIDIV4, float farZ = 1024.0f, float nearZ = 1.0f);
 
     void ComputeMatrices();
 
