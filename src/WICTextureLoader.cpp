@@ -28,6 +28,8 @@
 // We could load multi-frame images (TIFF/GIF) into a texture array.
 // For now, we just load the first frame (note: DirectXTex supports multi-frame images)
 
+#include "WICTextureLoader.hpp"
+#include "utils.hpp"
 #include <dxgiformat.h>
 #include <assert.h>
 
@@ -38,42 +40,10 @@
 
 #include <memory>
 
-#include "WICTextureLoader.hpp"
-
 #if (_WIN32_WINNT >= 0x0602 /*_WIN32_WINNT_WIN8*/) && !defined(DXGI_1_2_FORMATS)
 #define DXGI_1_2_FORMATS
 #endif
 
-//---------------------------------------------------------------------------------
-template<class T> class ScopedObject
-{
-public:
-    explicit ScopedObject(T *p = 0) : _pointer(p) {}
-    ~ScopedObject()
-    {
-        if (_pointer)
-        {
-            _pointer->Release();
-            _pointer = nullptr;
-        }
-    }
-
-    bool IsNull() const { return (!_pointer); }
-
-    T& operator*() { return *_pointer; }
-    T* operator->() { return _pointer; }
-    T** operator&() { return &_pointer; }
-
-    void Reset(T *p = 0) { if (_pointer) { _pointer->Release(); } _pointer = p; }
-
-    T* Get() const { return _pointer; }
-
-private:
-    ScopedObject(const ScopedObject&);
-    ScopedObject& operator=(const ScopedObject&);
-
-    T* _pointer;
-};
 
 //-------------------------------------------------------------------------------------
 // WIC Pixel Format Translation Data

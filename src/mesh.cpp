@@ -381,13 +381,13 @@ Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned int>&
     InitBuffers();
 }
 
-void Mesh::Draw() const
+void Mesh::Draw(bool depth) const
 {
     UINT stride = sizeof(Vertex);
     UINT offset = 0;
 
     render->GetDeviceContext()->IASetVertexBuffers(0, 1, &m_VertexBuffer, &stride, &offset);
-    render->GetDeviceContext()->IASetIndexBuffer(m_IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+    render->GetDeviceContext()->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
 
     const ViewSetup* view = render->GetCurrentView();
     Material::VSConstantBuffer vscb;
@@ -396,13 +396,24 @@ void Mesh::Draw() const
     Material::PSConstantBuffer pscb;
     pscb.viewPosition = view->origin;
 
-    for (unsigned int i = 0; i < m_MeshGroups.size(); ++i)
+    if (depth)
     {
-        const MeshGroup_t& meshGroup = m_MeshGroups[i];
-        meshGroup.material->SetMaterial(vscb, pscb);
-        render->GetDeviceContext()->DrawIndexed(meshGroup.indexCount, meshGroup.startIndex, 0);
-
+        materials->FindMaterial("depth")->SetMaterial(vscb, pscb);
+        render->GetDeviceContext()->DrawIndexed(m_Indices.size(), 0, 0);
     }
+    else
+    {
+        for (unsigned int i = 0; i < m_MeshGroups.size(); ++i)
+        {
+            const MeshGroup_t& meshGroup = m_MeshGroups[i];
+            const ViewSetup* shadowView = render->GetPreviousView();
+            vscb.matShadowToWorld = DirectX::XMMatrixTranspose(shadowView->matView * shadowView->matProjection);
+            meshGroup.material->SetMaterial(vscb, pscb);
+            render->GetDeviceContext()->DrawIndexed(meshGroup.indexCount, meshGroup.startIndex, 0);
+
+        }
+    }
+
 
 }
 
@@ -597,64 +608,3 @@ Vertex VertexLerp(const Vertex& v1, const Vertex& v2, float factor)
         v1.texcoord.y * (1 - factor) + v2.texcoord.y * factor);
 
 }
-
-/*
-void MorphedMesh::Draw(float morphFactor)
-{
-    assert(morphFactor >= 0.0f && morphFactor <= 1.0f);
-
-    m_Vertices.clear();
-    m_Indices.clear();
-
-    int segments = 32;
-    int sides = 32;
-    float radius1 = 2.0f;
-    float radius2 = 0.5f;
-
-    for (int i = 0; i < segments; ++i)
-    {
-        for (int j = 0; j < sides; ++j)
-        {
-            float theta1 = -DirectX::XM_2PI * i / (segments - 1) + 2 * DirectX::XM_PIDIV2;
-            float phi1 = -DirectX::XM_2PI * j / sides;
-
-            float theta2 = DirectX::XM_PI * i / (segments - 1);
-            float phi2 = -DirectX::XM_2PI * j / sides;
-
-            Vertex v1((radius1 + radius2 * std::cosf(theta1)) * std::cosf(phi1), (radius1 + radius2 * std::cosf(theta1)) * std::sinf(phi1), radius2 * std::sinf(theta1), (float)i / segments, (float)j / sides);
-            Vertex v2(std::cosf(phi2) * std::sinf(theta2) * radius1, std::sinf(phi2) * std::sinf(theta2) * radius1, std::cosf(theta2) * radius1, (float)i / segments, (float)j / sides);
-            m_Vertices.push_back(VertexLerp(v1, v2, morphFactor));
-
-            if (i < sides - 1)
-            {
-                unsigned int jplus1 = (j == sides - 1) ? 0 : (j + 1);
-                m_Indices.push_back((i + 1) * sides + j);
-                m_Indices.push_back(i * sides + j);
-                m_Indices.push_back(i * sides + jplus1);
-
-                m_Indices.push_back((i + 1) * sides + j);
-                m_Indices.push_back(i * sides + jplus1);
-                m_Indices.push_back((i + 1) * sides + jplus1);
-            }
-        }
-    }
-
-    D3D11_MAPPED_SUBRESOURCE mappedVertices;
-    render->GetDeviceContext()->Map(m_VertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedVertices);
-    memcpy(mappedVertices.pData, m_Vertices.data(), sizeof(Vertex) * m_Vertices.size());
-    render->GetDeviceContext()->Unmap(m_VertexBuffer, 0);
-
-    D3D11_MAPPED_SUBRESOURCE mappedIndices;
-    render->GetDeviceContext()->Map(m_IndexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedIndices);
-    memcpy(mappedIndices.pData, m_Indices.data(), sizeof(unsigned int) * m_Indices.size());
-    render->GetDeviceContext()->Unmap(m_IndexBuffer, 0);
-
-    UINT stride = sizeof(Vertex);
-    UINT offset = 0;
-    render->GetDeviceContext()->IASetVertexBuffers(0, 1, &m_VertexBuffer, &stride, &offset);
-    render->GetDeviceContext()->IASetIndexBuffer(m_IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
-
-    render->GetDeviceContext()->DrawIndexed(m_Indices.size(), 0, 0);
-
-}
-*/

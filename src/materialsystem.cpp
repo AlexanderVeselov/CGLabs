@@ -10,6 +10,7 @@ MaterialSystem* materials = &g_Materials;
 
 void MaterialSystem::Init()
 {
+    m_Materials["depth"] = std::make_shared<DepthMaterial>();
 
 }
 
@@ -42,8 +43,8 @@ VertexShader::VertexShader(const char* filename)
 
 void VertexShader::Set() const
 {
-    render->GetDeviceContext()->IASetInputLayout(m_InputLayout);
-    render->GetDeviceContext()->VSSetShader(m_VertexShader, nullptr, 0);
+    render->GetDeviceContext()->IASetInputLayout(m_InputLayout.Get());
+    render->GetDeviceContext()->VSSetShader(m_VertexShader.Get(), nullptr, 0);
 }
 
 PixelShader::PixelShader(const char* filename)
@@ -64,10 +65,10 @@ PixelShader::PixelShader(const char* filename)
 
 void PixelShader::Set() const
 {
-    render->GetDeviceContext()->PSSetShader(m_PixelShader, nullptr, 0);
+    render->GetDeviceContext()->PSSetShader(m_PixelShader.Get(), nullptr, 0);
 }
 
-Texture::Texture(const char* filename) : name(filename)
+Texture::Texture(const char* filename) : m_Name(filename)
 {
     char fullpath[256];
     sprintf(fullpath, "textures/%s.bmp", filename);
@@ -76,6 +77,61 @@ Texture::Texture(const char* filename) : name(filename)
         THROW_RUNTIME("Failed to load texture " << fullpath)
     }
 
+}
+
+Texture::Texture(unsigned int width, unsigned int height, const char* name) : m_Name(name)
+{
+    D3D11_TEXTURE2D_DESC textureDesc;
+    ZeroMemory(&textureDesc, sizeof(textureDesc));
+    textureDesc.Width = width;
+    textureDesc.Height = height;
+    textureDesc.MipLevels = 1;
+    textureDesc.ArraySize = 1;
+    textureDesc.Format = DXGI_FORMAT_R32_FLOAT;
+    textureDesc.SampleDesc.Count = 1;
+    textureDesc.SampleDesc.Quality = 0;
+    textureDesc.Usage = D3D11_USAGE_DEFAULT;
+    textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+        
+    // Create the texture
+    ID3D11Texture2D* texture;
+    render->GetDevice()->CreateTexture2D(&textureDesc, nullptr, &texture);
+
+    D3D11_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc;
+    shaderResourceViewDesc.Format = textureDesc.Format;
+    shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    shaderResourceViewDesc.Texture2D.MostDetailedMip = 0;
+    shaderResourceViewDesc.Texture2D.MipLevels = 1;
+
+    render->GetDevice()->CreateShaderResourceView(texture, &shaderResourceViewDesc, &m_TextureView);
+    
+    D3D11_RENDER_TARGET_VIEW_DESC renderTargetViewDesc;
+    renderTargetViewDesc.Format = textureDesc.Format;
+    renderTargetViewDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+    renderTargetViewDesc.Texture2D.MipSlice = 0;
+    render->GetDevice()->CreateRenderTargetView(texture, &renderTargetViewDesc, &m_RenderTargetView);
+
+    D3D11_TEXTURE2D_DESC descDepth;
+    ZeroMemory(&descDepth, sizeof(descDepth));
+    descDepth.Width = width;
+    descDepth.Height = height;
+    descDepth.MipLevels = 1;
+    descDepth.ArraySize = 1;
+    descDepth.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    descDepth.SampleDesc.Count = 1;
+    descDepth.SampleDesc.Quality = 0;
+    descDepth.Usage = D3D11_USAGE_DEFAULT;
+    descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+
+    ScopedObject<ID3D11Texture2D> depthStencilTexture;
+    render->GetDevice()->CreateTexture2D(&descDepth, nullptr, &depthStencilTexture);
+
+    D3D11_DEPTH_STENCIL_VIEW_DESC descDSV;
+    ZeroMemory(&descDSV, sizeof(descDSV));
+    descDSV.Format = descDepth.Format;
+    descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+    descDSV.Texture2D.MipSlice = 0;
+    render->GetDevice()->CreateDepthStencilView(depthStencilTexture.Get(), &descDSV, &m_DepthStencilView);
 
 }
 
@@ -84,43 +140,55 @@ void Texture::Set(unsigned int slot) const
     render->GetDeviceContext()->PSSetShaderResources(slot, 1, &m_TextureView);
 }
 
-VertexShader* MaterialSystem::FindVertexShader(const char* filename)
+std::shared_ptr<VertexShader> MaterialSystem::FindVertexShader(const char* filename)
 {
-    std::map<std::string, VertexShader>::iterator it = m_VertexShaders.find(filename);
+    std::map<std::string, std::shared_ptr<VertexShader> >::iterator it = m_VertexShaders.find(filename);
     if (it != m_VertexShaders.end())
     {
-        return &it->second;
+        return it->second;
     }
 
-    m_VertexShaders[filename] = VertexShader(filename);
-    return &m_VertexShaders[filename];
+    m_VertexShaders[filename] = std::make_shared<VertexShader>(filename);
+    return m_VertexShaders[filename];
 
 }
 
-PixelShader* MaterialSystem::FindPixelShader(const char* filename)
+std::shared_ptr<PixelShader> MaterialSystem::FindPixelShader(const char* filename)
 {
-    std::map<std::string, PixelShader>::iterator it = m_PixelShaders.find(filename);
+    std::map<std::string, std::shared_ptr<PixelShader> >::iterator it = m_PixelShaders.find(filename);
     if (it != m_PixelShaders.end())
     {
-        return &it->second;
+        return it->second;
     }
 
-    m_PixelShaders[filename] = PixelShader(filename);
-    return &m_PixelShaders[filename];
+    m_PixelShaders[filename] = std::make_shared<PixelShader>(filename);
+    return m_PixelShaders[filename];
 
 }
 
-Texture* MaterialSystem::FindTexture(const char* filename)
+std::shared_ptr<Texture> MaterialSystem::FindTexture(const char* filename)
 {
-    std::map<std::string, Texture>::iterator it = m_Textures.find(filename);
+    std::map<std::string, std::shared_ptr<Texture> >::iterator it = m_Textures.find(filename);
     if (it != m_Textures.end())
     {
-        return &it->second;
+        return it->second;
     }
 
-    m_Textures[filename] = Texture(filename);
-    return &m_Textures[filename];
+    m_Textures[filename] = std::make_shared<Texture>(filename);
+    return m_Textures[filename];
 
+}
+
+std::shared_ptr<Texture> MaterialSystem::CreateRenderableTexture(unsigned int width, unsigned int height, const char* filename)
+{
+    std::map<std::string, std::shared_ptr<Texture> >::iterator it = m_Textures.find(filename);
+    if (it != m_Textures.end())
+    {
+        return it->second;
+    }
+
+    m_Textures[filename] = std::make_shared<Texture>(width, height, filename);
+    return m_Textures[filename];
 }
 
 std::shared_ptr<Material> MaterialSystem::FindMaterial(const char* filename)
@@ -194,6 +262,7 @@ WorldMaterial::WorldMaterial(FILE* file) : m_Albedo(nullptr)
         }
 
     }
+    m_ShadowDepth = materials->FindTexture("_rt_ShadowDepth");
     
     render->GetDevice()->CreateRasterizerState(&rasterizerDesc, &m_RasterizerState);
     
@@ -226,6 +295,17 @@ WorldMaterial::WorldMaterial(FILE* file) : m_Albedo(nullptr)
     render->GetDevice()->CreateSamplerState(&sampDesc, &m_SamplerState);
     render->GetDeviceContext()->PSSetSamplers(0, 1, &m_SamplerState);
 
+    ZeroMemory(&sampDesc, sizeof(sampDesc));
+    sampDesc.Filter = D3D11_FILTER_MIN_MAG_POINT_MIP_LINEAR;
+    sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+    sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+    sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+    sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+    sampDesc.MinLOD = 0;
+    sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+    render->GetDevice()->CreateSamplerState(&sampDesc, &m_SamplerState_Shadow);
+    render->GetDeviceContext()->PSSetSamplers(1, 1, &m_SamplerState_Shadow);
+
     //D3D11_BLEND_DESC omDesc;
     //ZeroMemory(&omDesc, sizeof(D3D11_BLEND_DESC));
     //omDesc.RenderTarget[0].BlendEnable = true;
@@ -244,16 +324,54 @@ WorldMaterial::WorldMaterial(FILE* file) : m_Albedo(nullptr)
 void WorldMaterial::SetMaterial(const VSConstantBuffer& vsBuffer, const PSConstantBuffer& psBuffer) const
 {
     m_Albedo->Set(0);
+    m_ShadowDepth->Set(1);
 
     m_VertexShader->Set();
     m_PixelShader->Set();
 
-    render->GetDeviceContext()->RSSetState(m_RasterizerState);
+    render->GetDeviceContext()->RSSetState(m_RasterizerState.Get());
 
-    render->GetDeviceContext()->UpdateSubresource(m_VSConstantBuffer, 0, nullptr, &vsBuffer, 0, 0);
+    render->GetDeviceContext()->UpdateSubresource(m_VSConstantBuffer.Get(), 0, nullptr, &vsBuffer, 0, 0);
     render->GetDeviceContext()->VSSetConstantBuffers(0, 1, &m_VSConstantBuffer);
-    render->GetDeviceContext()->UpdateSubresource(m_PSConstantBuffer, 0, nullptr, &psBuffer, 0, 0);
-    render->GetDeviceContext()->PSSetConstantBuffers(1, 1, &m_PSConstantBuffer);
 
+    render->GetDeviceContext()->UpdateSubresource(m_PSConstantBuffer.Get(), 0, nullptr, &psBuffer, 0, 0);
+    render->GetDeviceContext()->PSSetConstantBuffers(1, 1, &m_PSConstantBuffer);
+    
+}
+
+DepthMaterial::DepthMaterial()
+{
+    m_VertexShader = materials->FindVertexShader("depth");
+    m_PixelShader = materials->FindPixelShader("depth");
+
+    D3D11_BUFFER_DESC vsConstantBufferDesc;
+    ZeroMemory(&vsConstantBufferDesc, sizeof(vsConstantBufferDesc));
+
+    vsConstantBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+    vsConstantBufferDesc.ByteWidth = sizeof(VSConstantBuffer);
+    vsConstantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    render->GetDevice()->CreateBuffer(&vsConstantBufferDesc, nullptr, &m_VSConstantBuffer);
+
+    // Create PS Constant Buffer
+    D3D11_BUFFER_DESC psConstantBufferDesc;
+    ZeroMemory(&psConstantBufferDesc, sizeof(psConstantBufferDesc));
+
+    psConstantBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+    psConstantBufferDesc.ByteWidth = sizeof(PSConstantBuffer);
+    psConstantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    render->GetDevice()->CreateBuffer(&psConstantBufferDesc, nullptr, &m_PSConstantBuffer);
+
+}
+
+void DepthMaterial::SetMaterial(const VSConstantBuffer& vsBuffer, const PSConstantBuffer& psBuffer) const
+{
+    m_VertexShader->Set();
+    m_PixelShader->Set();
+
+    render->GetDeviceContext()->UpdateSubresource(m_VSConstantBuffer.Get(), 0, nullptr, &vsBuffer, 0, 0);
+    render->GetDeviceContext()->VSSetConstantBuffers(0, 1, &m_VSConstantBuffer);
+
+    render->GetDeviceContext()->UpdateSubresource(m_PSConstantBuffer.Get(), 0, nullptr, &psBuffer, 0, 0);
+    render->GetDeviceContext()->PSSetConstantBuffers(1, 1, &m_PSConstantBuffer);
 
 }

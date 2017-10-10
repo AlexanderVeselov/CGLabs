@@ -95,7 +95,7 @@ HWND InitMainWindow(HINSTANCE hInstance, int nCmdShow)
     return hWnd;
 }
 
-void InitApp(HINSTANCE hInstance, int nCmdShow)
+bool InitApp(HINSTANCE hInstance, int nCmdShow)
 {
     HWND hwnd = InitMainWindow(hInstance, nCmdShow);
     
@@ -104,8 +104,17 @@ void InitApp(HINSTANCE hInstance, int nCmdShow)
     HWND hViewportPanel = CreateWindow("Static", NULL, WS_CHILD | WS_VISIBLE | SS_SUNKEN,
         256, 0, 1280 + 2, 720 + 2, hwnd, NULL, NULL, NULL);
 
-    render->Init(hViewportPanel);
+    try
+    {
+        render->Init(hViewportPanel);
+    }
+    catch (std::exception& ex)
+    {
+        MessageBox(hwnd, ex.what(), "Error", MB_OK);
+        return false;
+    }
 
+    return true;
 }
 
 void ShutdownApp()
@@ -116,7 +125,10 @@ void ShutdownApp()
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
-    InitApp(hInstance, nCmdShow);
+    if (!InitApp(hInstance, nCmdShow))
+    {
+        return 1;
+    }
 
     MSG msg = { 0 };
     while (msg.message != WM_QUIT)

@@ -3,6 +3,7 @@
 
 #include "gui.hpp"
 #include "mathlib.hpp"
+#include "utils.hpp"
 #include <memory>
 #include <Windows.h>
 
@@ -14,16 +15,16 @@
 #include <DirectXMath.h>
 
 struct Vertex;
-class Mesh;
-class MorphedMesh;
-class Camera;
 struct ViewSetup;
+class Mesh;
+class Camera;
+class Texture;
 
 struct ViewSetup
 {
     ViewSetup(float2 size = float2(100.0f, 100.0f), float3 origin = float3(-10.0f, 0.0f, 10.0f),
         float3 target = float3(0.0f, 0.0f, 0.0f), float3 up = float3(0.0f, 0.0f, 1.0f),
-        bool ortho = false, float fov = DirectX::XM_PIDIV4, float farZ = 1024.0f, float nearZ = 1.0f);
+        bool ortho = false, float fov = DirectX::XM_PIDIV4, float farZ = 4096.0f, float nearZ = 1.0f);
 
     void ComputeMatrices();
 
@@ -41,41 +42,45 @@ struct ViewSetup
 
 };
 
+struct ShadowState_t
+{
+    std::shared_ptr<Texture> depthTexture;
+    ViewSetup view;
+};
+
 class Render
 {
 public:
-    Render();
     void Init(HWND hWnd);
     void Shutdown();
     void RenderFrame();
     const HWND GetHWND() const { return m_hWnd; }
-    ID3D11Device* GetDevice() const { return m_D3DDevice; }
-    ID3D11DeviceContext* GetDeviceContext() const { return m_DeviceContext; }    
+    ID3D11Device* GetDevice() const { return m_D3DDevice.Get(); }
+    ID3D11DeviceContext* GetDeviceContext() const { return m_DeviceContext.Get(); }    
     const ViewSetup* GetCurrentView() const { return &m_ViewStack.back(); }
-    void PushView(ViewSetup& view) { view.ComputeMatrices(); m_ViewStack.push_back(view); }
-    void PopView() { m_ViewStack.pop_back(); }
+    const ViewSetup* GetPreviousView() const { return &m_ViewStack[m_ViewStack.size() - 2]; }
+
+    void PushView(ViewSetup& view, std::shared_ptr<Texture> renderTexture = nullptr);
+    void PopView();
 
 private:
     void InitD3D();
     void InitScene();
     void SetupView();
 
-    HWND                    m_hWnd;
-    D3D11_VIEWPORT          m_Viewport;
-    ID3D11Device*           m_D3DDevice;
-    ID3D11DeviceContext*    m_DeviceContext;
-    IDXGISwapChain*         m_SwapChain;
-    ID3D11RenderTargetView* m_RenderTargetView;
-    ID3D11DepthStencilView* m_DepthStencilView;
-    
-    ID3D11BlendState* m_OpacityBlend;
+    HWND                                    m_hWnd;
+    D3D11_VIEWPORT                          m_Viewport;
+    ScopedObject<ID3D11Device>              m_D3DDevice;
+    ScopedObject<ID3D11DeviceContext>       m_DeviceContext;
+    ScopedObject<IDXGISwapChain>            m_SwapChain;
+    ScopedObject<ID3D11RenderTargetView>    m_RenderTargetView;
+    ScopedObject<ID3D11DepthStencilView>    m_DepthStencilView;
+    std::vector<ShadowState_t>              m_ShadowStates;
 
-    std::vector<Mesh> m_Meshes;
+    std::vector<std::shared_ptr<Mesh> > m_Meshes;
     std::vector<ViewSetup> m_ViewStack;
-
     std::unique_ptr<Camera> m_Camera;
 
-    ID3D11SamplerState* m_SamplerLinear;
         
 };
 

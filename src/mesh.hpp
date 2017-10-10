@@ -2,6 +2,7 @@
 #define MESH_HPP
 
 #include "render.hpp"
+#include "utils.hpp"
 #include <d3d11.h>
 #include <DirectXMath.h>
 #include <vector>
@@ -46,13 +47,13 @@ public:
     const std::vector<unsigned int>& GetIndices() const { return m_Indices; }
     const DirectX::XMMATRIX& GetModelToWorld() const { return m_ModelToWorld; }
 
-    void Draw() const;
+    void Draw(bool depth = false) const;
 
 private:
     void InitBuffers();
 
-    ID3D11Buffer* m_VertexBuffer;
-    ID3D11Buffer* m_IndexBuffer;
+    ScopedObject<ID3D11Buffer> m_VertexBuffer;
+    ScopedObject<ID3D11Buffer> m_IndexBuffer;
 
     std::vector<Vertex> m_Vertices;
     std::vector<unsigned int> m_Indices;
@@ -61,41 +62,5 @@ private:
     DirectX::XMMATRIX m_ModelToWorld;
 
 };
-
-//class MorphedMesh
-//{
-//public:
-//    MorphedMesh() : m_VertexBuffer(nullptr), m_IndexBuffer(nullptr)
-//    {
-//        D3D11_BUFFER_DESC vertexBufferDesc;
-//        ZeroMemory(&vertexBufferDesc, sizeof(vertexBufferDesc));
-//        vertexBufferDesc.ByteWidth = sizeof(Vertex) * 32 * 32;
-//        vertexBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-//        vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-//        vertexBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-//
-//        render->GetDevice()->CreateBuffer(&vertexBufferDesc, nullptr, &m_VertexBuffer);
-//
-//        D3D11_BUFFER_DESC indexBufferDesc;
-//        ZeroMemory(&indexBufferDesc, sizeof(indexBufferDesc));
-//        indexBufferDesc.ByteWidth = sizeof(unsigned int) * 32 * 32 * 6;
-//        indexBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-//        indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-//        indexBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-//
-//        render->GetDevice()->CreateBuffer(&indexBufferDesc, nullptr, &m_IndexBuffer);
-//    }
-//
-//    void Draw(float morphFactor);
-//
-//private:
-//
-//    ID3D11Buffer* m_VertexBuffer;
-//    ID3D11Buffer* m_IndexBuffer;
-//
-//    std::vector<Vertex> m_Vertices;
-//    std::vector<unsigned int> m_Indices;
-//
-//};
 
 #endif // MESH_HPP

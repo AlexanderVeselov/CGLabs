@@ -2,6 +2,7 @@
 #include "mathlib.hpp"
 #include "mesh.hpp"
 #include "inputsystem.hpp"
+#include "materialsystem.hpp"
 #include <d3dcompiler.h>
 #include <vector>
 
@@ -80,7 +81,7 @@ void Camera::Update()
 
     if (input->IsMousePressed(MK_RBUTTON) && mouseClient.x > 0 && mouseClient.y > 0 && mouseClient.x < m_Viewport->Width && mouseClient.y < m_Viewport->Height)
     {
-        float sensivity = 0.00075;
+        float sensivity = 0.00075f;
         m_Yaw += (x - point.x) * sensivity;
         m_Pitch += (y - point.y) * sensivity;
         float epsilon = 0.0001f;
@@ -99,14 +100,6 @@ void Camera::Update()
     m_View.target = m_View.origin + float3(std::cosf(m_Yaw) * std::sinf(m_Pitch), std::sinf(m_Yaw) * std::sinf(m_Pitch), std::cosf(m_Pitch));
 
 
-}
-
-Render::Render() : m_hWnd(0),
-                   m_D3DDevice(0),
-                   m_DeviceContext(0),
-                   m_SwapChain(0),
-                   m_RenderTargetView(0)
-{
 }
 
 void Render::InitD3D()
@@ -151,12 +144,11 @@ void Render::InitD3D()
     m_Viewport.MaxDepth = 1.0f;
     
     // Setup Back Buffer
-    ID3D11Texture2D *pBackBuffer;
+    ScopedObject<ID3D11Texture2D> pBackBuffer;
     m_SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&pBackBuffer);
 
     // use the back buffer address to create the render target
-    GetDevice()->CreateRenderTargetView(pBackBuffer, nullptr, &m_RenderTargetView);
-    pBackBuffer->Release();
+    GetDevice()->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &m_RenderTargetView);
 
     // Setup Depth Buffer
     D3D11_TEXTURE2D_DESC descDepth;
@@ -171,21 +163,16 @@ void Render::InitD3D()
     descDepth.Usage = D3D11_USAGE_DEFAULT;
     descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
 
-    ID3D11Texture2D *pDepthStencil;
-    GetDevice()->CreateTexture2D(&descDepth, nullptr, &pDepthStencil);
+    ScopedObject<ID3D11Texture2D> depthStencilTexture;
+    GetDevice()->CreateTexture2D(&descDepth, nullptr, &depthStencilTexture);
 
     D3D11_DEPTH_STENCIL_VIEW_DESC descDSV;
     ZeroMemory(&descDSV, sizeof(descDSV));
     descDSV.Format = descDepth.Format;
     descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
     descDSV.Texture2D.MipSlice = 0;
-    GetDevice()->CreateDepthStencilView(pDepthStencil, &descDSV, &m_DepthStencilView);
-    //pDepthStencil->Release();
-
-    // set the render target as the back buffer
-    GetDeviceContext()->OMSetRenderTargets(1, &m_RenderTargetView, m_DepthStencilView);
-    GetDeviceContext()->RSSetViewports(1, &m_Viewport);
-
+    GetDevice()->CreateDepthStencilView(depthStencilTexture.Get(), &descDSV, &m_DepthStencilView);
+    
     GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 }
@@ -197,14 +184,8 @@ void Render::InitScene()
     //m_Meshes.push_back(Mesh("meshes/cube.obj"));
     //m_Meshes.push_back(Mesh("meshes/cone.obj"));
     //m_Meshes.push_back(Mesh("meshes/sphere.obj"));
-    try
-    {
-        m_Meshes.push_back(Mesh("meshes/cube2.obj"));
-    }
-    catch (std::exception& ex)
-    {
-        MessageBox(render->GetHWND(), ex.what(), "Error", MB_OK);
-    }
+
+    m_Meshes.push_back(std::make_shared<Mesh>("meshes/city.obj"));
     
     m_Camera = std::make_unique<Camera>(&m_Viewport);
   
@@ -213,9 +194,16 @@ void Render::InitScene()
 void Render::Init(HWND hWnd)
 {
     m_hWnd = hWnd;
-
+    
     InitD3D();
+
+    materials->Init();
+    ShadowState_t shadowstate;
+    shadowstate.depthTexture = materials->CreateRenderableTexture(2048, 2048, "_rt_ShadowDepth");
+    m_ShadowStates.push_back(shadowstate);
+    
     InitScene();
+
 
 }
 
@@ -223,21 +211,72 @@ void Render::SetupView()
 {
 }
 
+void Render::PushView(ViewSetup& view, std::shared_ptr<Texture> renderTexture)
+{
+    view.ComputeMatrices();
+    m_ViewStack.push_back(view);
+
+    if (renderTexture == nullptr)
+    {
+        GetDeviceContext()->OMSetRenderTargets(1, &m_RenderTargetView, m_DepthStencilView.Get());
+        float clearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
+        GetDeviceContext()->ClearRenderTargetView(m_RenderTargetView.Get(), clearColor);
+        GetDeviceContext()->ClearDepthStencilView(m_DepthStencilView.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+        GetDeviceContext()->RSSetViewports(1, &m_Viewport);
+    }
+    else
+    {
+        ID3D11RenderTargetView* renderTargetView = renderTexture->GetRenderTargetView();
+        ID3D11DepthStencilView* depthStencilView = renderTexture->GetDepthStencilView();
+        GetDeviceContext()->OMSetRenderTargets(1, &renderTargetView, depthStencilView);
+        float clearColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+        GetDeviceContext()->ClearRenderTargetView(renderTargetView, clearColor);
+        GetDeviceContext()->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);
+        D3D11_VIEWPORT viewport;
+        ZeroMemory(&viewport, sizeof(D3D11_VIEWPORT));
+        viewport.TopLeftX = 0;
+        viewport.TopLeftY = 0;
+        viewport.Width = 2048;
+        viewport.Height = 2048;
+        viewport.MinDepth = 0.0f;
+        viewport.MaxDepth = 1.0f;
+        GetDeviceContext()->RSSetViewports(1, &viewport);
+
+    }
+}
+
+void Render::PopView()
+{
+    m_ViewStack.pop_back();
+}
+
 void Render::RenderFrame()
 {
-    float clearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
-    GetDeviceContext()->ClearRenderTargetView(m_RenderTargetView, clearColor);
-    GetDeviceContext()->ClearDepthStencilView(m_DepthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);
-
     m_Camera->Update();
 
-    PushView(m_Camera->GetView());
-    
-    for (std::vector<Mesh>::iterator it = m_Meshes.begin(); it != m_Meshes.end(); ++it)
+    ShadowState_t cascade = m_ShadowStates.back();
+    ViewSetup& view = cascade.view;
+    view.origin = float3(1000, 1000, 500);
+    view.target = float3(0, 0, 0);
+    view.ortho = true;
+    view.size = float2(100, 100);
+
+    PushView(view, m_ShadowStates.back().depthTexture);
     {
-        it->Draw();
+        for (std::vector<std::shared_ptr<Mesh> >::iterator it = m_Meshes.begin(); it != m_Meshes.end(); ++it)
+        {
+            (*it)->Draw(true);
+        }
+
+        PushView(m_Camera->GetView());
+        {
+            for (std::vector<std::shared_ptr<Mesh> >::iterator it = m_Meshes.begin(); it != m_Meshes.end(); ++it)
+            {
+                (*it)->Draw();
+            }
+        }
+        PopView();
     }
-    
     PopView();
 
     m_SwapChain->Present(0, 0);
@@ -246,10 +285,4 @@ void Render::RenderFrame()
 
 void Render::Shutdown()
 {
-    // Delete objects in reverse order
-    if (m_RenderTargetView) m_RenderTargetView->Release();
-    if (m_SwapChain) m_SwapChain->Release();
-    if (m_DeviceContext) GetDeviceContext()->Release();
-    if (m_D3DDevice) GetDevice()->Release();
-
 }
