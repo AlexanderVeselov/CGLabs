@@ -56,7 +56,7 @@ class GuiManager
 public:
     void Init(HWND mainWindow);
     void Shutdown();
-    Trackbar* AddTrackbar(int x, int y, int width, const char* caption, float minval = 0.0f, float maxval = 1.0f, float startval = 0.0f, float tickSize = 0.1f);
+    Trackbar* AddTrackbar(int x, int y, int width, const char* caption, float minval = 0.0f, float maxval = 1.0f, float startval = 0.0f, float tickSize = 0.01f);
     Checkbox* AddCheckbox(int x, int y, int width, const char* caption);
     GuiElement* GetElementByHwnd(HWND handle) const;
     template <class T> const T* GetElementByName(const char* name) const;

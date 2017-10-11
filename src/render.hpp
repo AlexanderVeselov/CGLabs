@@ -22,13 +22,24 @@ class Texture;
 
 struct ViewSetup
 {
-    ViewSetup(float2 size = float2(100.0f, 100.0f), float3 origin = float3(-10.0f, 0.0f, 10.0f),
-        float3 target = float3(0.0f, 0.0f, 0.0f), float3 up = float3(0.0f, 0.0f, 1.0f),
-        bool ortho = false, float fov = DirectX::XM_PIDIV4, float farZ = 4096.0f, float nearZ = 1.0f);
+    ViewSetup() :
+        x(0), y(0),
+        width(128), height(128),
+        viewSize(128.0f, 128.0f),
+        origin(0.0f, 0.0f, 0.0f),
+        target(1.0f, 0.0f, 0.0f),
+        up(0.0f, 0.0f, 1.0f),
+        ortho(false),
+        fov(DirectX::XM_PIDIV4),
+        farZ(1024.0f),
+        nearZ(1.0f)
+    {}
 
     void ComputeMatrices();
 
-    float2 size;
+    int x, y;
+    int width, height;
+    float2 viewSize;
     float3 origin;
     float3 target;
     float3 up;
@@ -37,8 +48,7 @@ struct ViewSetup
     float farZ;
     float nearZ;
 
-    DirectX::XMMATRIX matView;
-    DirectX::XMMATRIX matProjection;
+    DirectX::XMMATRIX matWorldToCamera;
 
 };
 

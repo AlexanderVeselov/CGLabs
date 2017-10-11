@@ -57,8 +57,8 @@ public:
     // TODO: overload this
     struct VSConstantBuffer
     {
-        DirectX::XMMATRIX matWorld;
-        DirectX::XMMATRIX matViewProjection;
+        DirectX::XMMATRIX matModelToWorld;
+        DirectX::XMMATRIX matWorldToCamera;
         DirectX::XMMATRIX matShadowToWorld;
     };
 
@@ -105,6 +105,14 @@ public:
     virtual void SetMaterial(const VSConstantBuffer& vsBuffer, const PSConstantBuffer& psBuffer) const;
 private:
 
+};
+
+class DebugMaterial : public Material
+{
+public:
+    DebugMaterial(std::shared_ptr<VertexShader> vs, std::shared_ptr<PixelShader> ps);
+    virtual void SetMaterial(const VSConstantBuffer& vsBuffer, const PSConstantBuffer& psBuffer) const;
+    
 };
 
 class MaterialSystem

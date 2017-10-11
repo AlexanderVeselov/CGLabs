@@ -3,21 +3,22 @@
 
 #include "render.hpp"
 #include "utils.hpp"
+#include "mathlib.hpp"
 #include <d3d11.h>
 #include <DirectXMath.h>
 #include <vector>
 
 struct Vertex
 {
-    Vertex(float x, float y, float z) : position(x, y, z), texcoord(0, 0), normal(0, 0, 0) {}
-    Vertex(float x, float y, float z, float u, float v) : position(x, y, z), texcoord(u, v), normal(0, 0, 0) {}
-    Vertex(float x, float y, float z, float u, float v, float nx, float ny, float nz) : position(x, y, z), texcoord(u, v), normal(nx, ny, nz) {}
-    Vertex(const DirectX::XMFLOAT3& position) : position(position), texcoord(0, 0), normal(0, 0, 0) {}
-    Vertex(const DirectX::XMFLOAT3& position, const DirectX::XMFLOAT2& texcoord, const DirectX::XMFLOAT3& normal) : position(position), texcoord(texcoord), normal(normal) {}
+    Vertex(const float3& position, const float2& texcoord, const float3& normal)
+        : position(position), texcoord(texcoord), normal(normal)
+    {}
 
-    DirectX::XMFLOAT3 position;
-    DirectX::XMFLOAT2 texcoord;
-    DirectX::XMFLOAT3 normal;
+    float3 position;
+    float2 texcoord;
+    float3 normal;
+    float3 tangent_s;
+    float3 tangent_t;
 
 };
 
@@ -42,22 +43,27 @@ public:
 
     Mesh(const char* filename);
     Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices);
-
-    const std::vector<Vertex>& GetVertices() const { return m_Vertices; }
-    const std::vector<unsigned int>& GetIndices() const { return m_Indices; }
     const DirectX::XMMATRIX& GetModelToWorld() const { return m_ModelToWorld; }
 
-    void Draw(bool depth = false) const;
+    void Draw(bool drawDepth = false) const;
 
 private:
     void InitBuffers();
 
     ScopedObject<ID3D11Buffer> m_VertexBuffer;
     ScopedObject<ID3D11Buffer> m_IndexBuffer;
+    
+    ScopedObject<ID3D11Buffer> m_DbgVertexBuffer_n;
+    ScopedObject<ID3D11Buffer> m_DbgVertexBuffer_s;
+    ScopedObject<ID3D11Buffer> m_DbgVertexBuffer_t;
 
     std::vector<Vertex> m_Vertices;
     std::vector<unsigned int> m_Indices;
     std::vector<MeshGroup_t> m_MeshGroups;
+
+    std::vector<Vertex> m_DbgNormals;
+    std::vector<Vertex> m_DbgTangent_s;
+    std::vector<Vertex> m_DbgTangent_t;
 
     DirectX::XMMATRIX m_ModelToWorld;
 

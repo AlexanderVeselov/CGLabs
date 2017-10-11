@@ -1,7 +1,7 @@
 #include "inputsystem.hpp"
 #include <Windows.h>
 
-InputSystem g_InputSystem;
+static InputSystem g_InputSystem;
 InputSystem* input = &g_InputSystem;
 
 InputSystem::InputSystem() : m_Mouse(0)

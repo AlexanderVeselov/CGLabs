@@ -1,6 +1,6 @@
 #include "gui.hpp"
 
-GuiManager g_GuiManager;
+static GuiManager g_GuiManager;
 GuiManager* guimanager = &g_GuiManager;
 
 HFONT g_DefaultFont = CreateFont(

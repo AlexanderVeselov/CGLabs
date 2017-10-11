@@ -6,26 +6,8 @@
 #include <d3dcompiler.h>
 #include <vector>
 
-Render g_Render;
+static Render g_Render;
 Render* render = &g_Render;
-
-ViewSetup::ViewSetup(float2 size,
-                     float3 origin,
-                     float3 target,
-                     float3 up,
-                     bool ortho,
-                     float fov,
-                     float farZ,
-                     float nearZ)
-    : size(size),
-      origin(origin),
-      target(target),
-      up(up),
-      ortho(ortho),
-      fov(fov),
-      farZ(farZ), nearZ(nearZ)
-{
-}
 
 void ViewSetup::ComputeMatrices()
 {
@@ -33,16 +15,16 @@ void ViewSetup::ComputeMatrices()
     DirectX::XMVECTOR Eye = DirectX::XMVectorSet(origin.x, origin.y, origin.z, 0.0f);
     DirectX::XMVECTOR At = DirectX::XMVectorSet(target.x, target.y, target.z, 0.0f);
     DirectX::XMVECTOR Up = DirectX::XMVectorSet(up.x, up.y, up.z, 0.0f);
-    matView = DirectX::XMMatrixLookAtLH(Eye, At, Up);
-
+    matWorldToCamera = DirectX::XMMatrixLookAtLH(Eye, At, Up);
+    
     // Projection Matrix
     if (ortho)
     {
-        matProjection = DirectX::XMMatrixOrthographicLH(size.x, size.y, nearZ, farZ);
+        matWorldToCamera *= DirectX::XMMatrixOrthographicLH(viewSize.x, viewSize.y, nearZ, farZ);
     }
     else
     {
-        matProjection = DirectX::XMMatrixPerspectiveFovLH(fov, size.x / size.y, nearZ, farZ);
+        matWorldToCamera *= DirectX::XMMatrixPerspectiveFovLH(fov, viewSize.x / viewSize.y, nearZ, farZ);
     }
 }
 
@@ -55,7 +37,6 @@ public:
 
 private:
     ViewSetup m_View;
-    const D3D11_VIEWPORT* m_Viewport;
     float m_Pitch;
     float m_Yaw;
     float m_Speed;
@@ -63,12 +44,19 @@ private:
 };
 
 Camera::Camera(const D3D11_VIEWPORT* viewport)
-    :   m_Viewport(viewport),
-        m_Pitch(DirectX::XM_PIDIV2),
+    :   m_Pitch(DirectX::XM_PIDIV2),
         m_Yaw(0.0f),
-        m_Speed(0.01f)
+        m_Speed(0.1f)
 {
-    m_View.size = float2(viewport->Width, viewport->Height);
+    RECT rc;
+    GetClientRect(render->GetHWND(), &rc);
+
+    m_View.x = rc.top;
+    m_View.y = rc.left;
+    m_View.width = rc.right - rc.left;
+    m_View.height = rc.bottom - rc.top;
+    m_View.viewSize = float2(m_View.width, m_View.height);
+
 }
 
 void Camera::Update()
@@ -79,7 +67,7 @@ void Camera::Update()
     POINT mouseClient = { x, y };
     ScreenToClient(render->GetHWND(), &mouseClient);
 
-    if (input->IsMousePressed(MK_RBUTTON) && mouseClient.x > 0 && mouseClient.y > 0 && mouseClient.x < m_Viewport->Width && mouseClient.y < m_Viewport->Height)
+    if (input->IsMousePressed(MK_RBUTTON) && mouseClient.x > 0 && mouseClient.y > 0 && mouseClient.x < m_View.width && mouseClient.y < m_View.height)
     {
         float sensivity = 0.00075f;
         m_Yaw += (x - point.x) * sensivity;
@@ -131,18 +119,7 @@ void Render::InitD3D()
         &m_D3DDevice,               // ppDevice
         nullptr,                    // pFeatureLevel
         &m_DeviceContext);          // ppImmediateContext
-
-    // Set the viewport
-    RECT rc;
-    GetClientRect(m_hWnd, &rc);
-    ZeroMemory(&m_Viewport, sizeof(D3D11_VIEWPORT));
-    m_Viewport.TopLeftX = rc.top;
-    m_Viewport.TopLeftY = rc.left;
-    m_Viewport.Width = rc.right - rc.left;
-    m_Viewport.Height = rc.bottom - rc.top;
-    m_Viewport.MinDepth = 0.0f;
-    m_Viewport.MaxDepth = 1.0f;
-    
+        
     // Setup Back Buffer
     ScopedObject<ID3D11Texture2D> pBackBuffer;
     m_SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&pBackBuffer);
@@ -153,8 +130,8 @@ void Render::InitD3D()
     // Setup Depth Buffer
     D3D11_TEXTURE2D_DESC descDepth;
     ZeroMemory(&descDepth, sizeof(descDepth));
-    descDepth.Width = m_Viewport.Width;
-    descDepth.Height = m_Viewport.Height;
+    descDepth.Width = 1280;
+    descDepth.Height = 720;
     descDepth.MipLevels = 1;
     descDepth.ArraySize = 1;
     descDepth.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
@@ -173,7 +150,6 @@ void Render::InitD3D()
     descDSV.Texture2D.MipSlice = 0;
     GetDevice()->CreateDepthStencilView(depthStencilTexture.Get(), &descDSV, &m_DepthStencilView);
     
-    GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 }
 
@@ -183,9 +159,9 @@ void Render::InitScene()
     //m_Meshes.push_back(Mesh("meshes/plane.obj"));
     //m_Meshes.push_back(Mesh("meshes/cube.obj"));
     //m_Meshes.push_back(Mesh("meshes/cone.obj"));
-    //m_Meshes.push_back(Mesh("meshes/sphere.obj"));
 
-    m_Meshes.push_back(std::make_shared<Mesh>("meshes/city.obj"));
+    m_Meshes.push_back(std::make_shared<Mesh>("meshes/teapot.obj"));
+    //m_Meshes.push_back(std::make_shared<Mesh>("meshes/room.obj"));
     
     m_Camera = std::make_unique<Camera>(&m_Viewport);
   
@@ -195,16 +171,16 @@ void Render::Init(HWND hWnd)
 {
     m_hWnd = hWnd;
     
-    InitD3D();
+    guimanager->AddTrackbar(20, 100, 200, "light_pitch", 0.0f, DirectX::XM_PIDIV2, DirectX::XM_PIDIV4, DirectX::XM_PIDIV2 / 32);
+    guimanager->AddTrackbar(20, 150, 200, "light_yaw", 0.0f, DirectX::XM_2PI, DirectX::XM_PIDIV4, DirectX::XM_2PI / 32);
 
+    InitD3D();
     materials->Init();
     ShadowState_t shadowstate;
     shadowstate.depthTexture = materials->CreateRenderableTexture(2048, 2048, "_rt_ShadowDepth");
-    m_ShadowStates.push_back(shadowstate);
-    
+    m_ShadowStates.push_back(shadowstate);    
     InitScene();
-
-
+    
 }
 
 void Render::SetupView()
@@ -216,33 +192,34 @@ void Render::PushView(ViewSetup& view, std::shared_ptr<Texture> renderTexture)
     view.ComputeMatrices();
     m_ViewStack.push_back(view);
 
+    D3D11_VIEWPORT viewport;
+    ZeroMemory(&viewport, sizeof(D3D11_VIEWPORT));
+    viewport.TopLeftX = view.x;
+    viewport.TopLeftY = view.y;
+    viewport.Width = view.width;
+    viewport.Height = view.height;
+    viewport.MinDepth = 0.0f;
+    viewport.MaxDepth = 1.0f;
+
     if (renderTexture == nullptr)
     {
-        GetDeviceContext()->OMSetRenderTargets(1, &m_RenderTargetView, m_DepthStencilView.Get());
         float clearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
         GetDeviceContext()->ClearRenderTargetView(m_RenderTargetView.Get(), clearColor);
-        GetDeviceContext()->ClearDepthStencilView(m_DepthStencilView.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
-        GetDeviceContext()->RSSetViewports(1, &m_Viewport);
+        GetDeviceContext()->ClearDepthStencilView(m_DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+        GetDeviceContext()->OMSetRenderTargets(1, &m_RenderTargetView, m_DepthStencilView.Get());
     }
     else
     {
         ID3D11RenderTargetView* renderTargetView = renderTexture->GetRenderTargetView();
         ID3D11DepthStencilView* depthStencilView = renderTexture->GetDepthStencilView();
-        GetDeviceContext()->OMSetRenderTargets(1, &renderTargetView, depthStencilView);
         float clearColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
         GetDeviceContext()->ClearRenderTargetView(renderTargetView, clearColor);
-        GetDeviceContext()->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);
-        D3D11_VIEWPORT viewport;
-        ZeroMemory(&viewport, sizeof(D3D11_VIEWPORT));
-        viewport.TopLeftX = 0;
-        viewport.TopLeftY = 0;
-        viewport.Width = 2048;
-        viewport.Height = 2048;
-        viewport.MinDepth = 0.0f;
-        viewport.MaxDepth = 1.0f;
-        GetDeviceContext()->RSSetViewports(1, &viewport);
+        GetDeviceContext()->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+        GetDeviceContext()->OMSetRenderTargets(1, &renderTargetView, depthStencilView);
 
     }
+    GetDeviceContext()->RSSetViewports(1, &viewport);
+
 }
 
 void Render::PopView()
@@ -256,10 +233,15 @@ void Render::RenderFrame()
 
     ShadowState_t cascade = m_ShadowStates.back();
     ViewSetup& view = cascade.view;
-    view.origin = float3(1000, 1000, 500);
+    float pitch = guimanager->GetElementByName<Trackbar>("light_pitch")->GetValue();
+    pitch = clamp(pitch, 0.0f, DirectX::XM_PIDIV2 - 0.0001f);
+    float yaw = guimanager->GetElementByName<Trackbar>("light_yaw")->GetValue();
+    view.origin = float3(std::cosf(yaw)*std::cosf(pitch), std::sinf(yaw)*std::cosf(pitch), std::sinf(pitch)) * 500;
     view.target = float3(0, 0, 0);
     view.ortho = true;
-    view.size = float2(100, 100);
+    view.viewSize = float2(256, 256);
+    view.width = 2048;
+    view.height = 2048;
 
     PushView(view, m_ShadowStates.back().depthTexture);
     {

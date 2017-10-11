@@ -24,9 +24,11 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
     case WM_COMMAND:
         guimanager->UpdateElement((HWND)lParam);
         break;
+    case WM_SYSKEYDOWN:
     case WM_KEYDOWN:
         input->KeyDown((unsigned int)wParam);
         break;
+    case WM_SYSKEYUP:
     case WM_KEYUP:
         input->KeyUp((unsigned int)wParam);
         break;

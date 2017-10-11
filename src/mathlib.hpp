@@ -37,7 +37,7 @@ struct float3
 
 private:
     // Used for align to 4 bytes
-    float w;
+    //float w;
 
 };
 
