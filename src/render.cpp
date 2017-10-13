@@ -160,7 +160,7 @@ void Render::InitScene()
     //m_Meshes.push_back(Mesh("meshes/cube.obj"));
     //m_Meshes.push_back(Mesh("meshes/cone.obj"));
 
-    m_Meshes.push_back(std::make_shared<Mesh>("meshes/teapot.obj"));
+    m_Meshes.push_back(std::make_shared<Mesh>("meshes/sponza.dat", "sponza"));
     //m_Meshes.push_back(std::make_shared<Mesh>("meshes/room.obj"));
     
     m_Camera = std::make_unique<Camera>(&m_Viewport);
@@ -236,8 +236,8 @@ void Render::RenderFrame()
     float pitch = guimanager->GetElementByName<Trackbar>("light_pitch")->GetValue();
     pitch = clamp(pitch, 0.0f, DirectX::XM_PIDIV2 - 0.0001f);
     float yaw = guimanager->GetElementByName<Trackbar>("light_yaw")->GetValue();
-    view.origin = float3(std::cosf(yaw)*std::cosf(pitch), std::sinf(yaw)*std::cosf(pitch), std::sinf(pitch)) * 500;
-    view.target = float3(0, 0, 0);
+    view.target = float3(0, 0, 0); //m_Camera->GetView().origin;
+    view.origin = float3(std::cosf(yaw)*std::cosf(pitch), std::sinf(yaw)*std::cosf(pitch), std::sinf(pitch)) * 500; // + view.target
     view.ortho = true;
     view.viewSize = float2(256, 256);
     view.width = 2048;

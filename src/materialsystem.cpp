@@ -1,7 +1,7 @@
 #include "materialsystem.hpp"
 #include "render.hpp"
-#include "WICTextureLoader.hpp"
 #include "utils.hpp"
+#include "dds.hpp"
 #include <d3dcompiler.h>
 #include <stdio.h>
 
@@ -76,9 +76,9 @@ void PixelShader::Set() const
 
 Texture::Texture(const char* filename) : m_Name(filename)
 {
-    char fullpath[256];
-    sprintf(fullpath, "textures/%s.bmp", filename);
-    if (FAILED(CreateWICTextureFromFile(render->GetDevice(), render->GetDeviceContext(), fullpath, nullptr, &m_TextureView)))
+    wchar_t fullpath[256];
+    swprintf(fullpath, L"textures/%S.dds", filename);
+    if (FAILED(DirectX::CreateDDSTextureFromFile(render->GetDevice(), render->GetDeviceContext(), fullpath, nullptr, &m_TextureView)))
     {
         THROW_RUNTIME("Failed to load texture " << fullpath)
     }
@@ -281,6 +281,11 @@ WorldMaterial::WorldMaterial(FILE* file) : m_Albedo(nullptr)
             fscanf(file, "%s", buffer);
             m_Normal = materials->FindTexture(buffer, TEXTURE_GROUP_NORMAL);
         }
+        else if (strcmp(buffer, "$spec") == 0)
+        {
+            fscanf(file, "%s", buffer);
+            m_Specular = materials->FindTexture(buffer, TEXTURE_GROUP_OTHER);
+        }
         else if (strcmp(buffer, "$nocull") == 0)
         {
             rasterizerDesc.CullMode = D3D11_CULL_NONE;
@@ -295,6 +300,10 @@ WorldMaterial::WorldMaterial(FILE* file) : m_Albedo(nullptr)
     if (!m_Normal)
     {
         m_Normal = materials->FindTexture("normal_flat", TEXTURE_GROUP_NORMAL);
+    }
+    if (!m_Specular)
+    {
+        m_Specular = materials->FindTexture("white", TEXTURE_GROUP_OTHER);
     }
     
     render->GetDevice()->CreateRasterizerState(&rasterizerDesc, &m_RasterizerState);
@@ -360,6 +369,7 @@ void WorldMaterial::SetMaterial(const VSConstantBuffer& vsBuffer, const PSConsta
     m_Albedo->Set(0);
     m_ShadowDepth->Set(1);
     m_Normal->Set(2);
+    m_Specular->Set(3);
 
     m_VertexShader->Set();
     m_PixelShader->Set();

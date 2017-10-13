@@ -341,8 +341,7 @@ void ComputeTangentSpace(Vertex& v1, Vertex& v2, Vertex& v3)
 
 }
 
-// Load from .obj
-Mesh::Mesh(const char* filename) : m_ModelToWorld(DirectX::XMMatrixIdentity())
+void Mesh::LoadFromObj(const char* filename)
 {
     ObjReader objReader(filename);
 
@@ -354,15 +353,15 @@ Mesh::Mesh(const char* filename) : m_ModelToWorld(DirectX::XMMatrixIdentity())
 
     std::string materialName;
     ObjReader::ObjToken_t token;
-    
+
     std::unordered_map<std::string, unsigned int> indexDictionary;
     std::unordered_map<std::string, unsigned int>::iterator iter;
 
     MeshGroup_t meshGroup;
     meshGroup.startIndex = 0;
     meshGroup.indexCount = 0;
-    meshGroup.material = nullptr;
-
+    strcpy(meshGroup.materialName, "debug_checker");
+    
     while ((token = objReader.NextToken()) != ObjReader::OBJ_EOF)
     {
         switch (token)
@@ -372,7 +371,7 @@ Mesh::Mesh(const char* filename) : m_ModelToWorld(DirectX::XMMatrixIdentity())
             {
                 m_MeshGroups.push_back(meshGroup);
             }
-            meshGroup.material = materials->FindMaterial(objReader.GetStringValue().c_str());
+            strcpy(meshGroup.materialName, objReader.GetStringValue().c_str());
             meshGroup.startIndex = m_Indices.size();
             meshGroup.indexCount = 0;
             break;
@@ -412,11 +411,6 @@ Mesh::Mesh(const char* filename) : m_ModelToWorld(DirectX::XMMatrixIdentity())
         }
     }
 
-    // No material information in .obj file
-    if (meshGroup.material == nullptr)
-    {
-        meshGroup.material = materials->FindMaterial("debug_checker");
-    }
     m_MeshGroups.push_back(meshGroup);
     
     for (unsigned int i = 0; i < m_Indices.size(); i += 3)
@@ -440,13 +434,84 @@ Mesh::Mesh(const char* filename) : m_ModelToWorld(DirectX::XMMatrixIdentity())
     }
 #ifdef DEBUG_TANGENTS    for (unsigned int i = 0; i < m_Vertices.size(); ++i)    {
         m_DbgNormals.push_back(Vertex(m_Vertices[i].position, m_Vertices[i].texcoord, m_Vertices[i].normal));
-        m_DbgNormals.push_back(Vertex(m_Vertices[i].position + m_Vertices[i].normal, m_Vertices[i].texcoord, m_Vertices[i].normal));        
+        m_DbgNormals.push_back(Vertex(m_Vertices[i].position + m_Vertices[i].normal, m_Vertices[i].texcoord, m_Vertices[i].normal));
         m_DbgTangent_s.push_back(Vertex(m_Vertices[i].position, m_Vertices[i].texcoord, m_Vertices[i].normal));
         m_DbgTangent_s.push_back(Vertex(m_Vertices[i].position + m_Vertices[i].tangent_s, m_Vertices[i].texcoord, m_Vertices[i].normal));
 
         m_DbgTangent_t.push_back(Vertex(m_Vertices[i].position, m_Vertices[i].texcoord, m_Vertices[i].normal));
         m_DbgTangent_t.push_back(Vertex(m_Vertices[i].position + m_Vertices[i].tangent_t, m_Vertices[i].texcoord, m_Vertices[i].normal));    }
 #endif
+}
+
+// Maybe not good, but much faster than loading obj...
+void Mesh::SaveToDat(const char* filename) const
+{
+    std::ofstream outfile(filename, std::ios::out | std::ofstream::binary);
+    unsigned int size = m_Vertices.size() * sizeof(Vertex);
+    outfile.write((char*)&size, sizeof(size));
+    outfile.write((char*)m_Vertices.data(), size);
+
+    size = m_Indices.size() * sizeof(unsigned int);
+    outfile.write((char*)&size, sizeof(size));
+    outfile.write((char*)m_Indices.data(), size);
+
+    size = m_MeshGroups.size() * sizeof(MeshGroup_t);
+    outfile.write((char*)&size, sizeof(size));
+    outfile.write((char*)m_MeshGroups.data(), size);
+
+}
+
+void Mesh::LoadFromDat(const char* filename)
+{
+    std::ifstream infile(filename, std::ios::in | std::ifstream::binary);
+
+    unsigned int size;
+    infile.read((char*)&size, sizeof(size));
+    m_Vertices.resize(size / sizeof(Vertex));
+    infile.read((char*)m_Vertices.data(), size);
+
+    infile.read((char*)&size, sizeof(size));
+    m_Indices.resize(size / sizeof(unsigned int));
+    infile.read((char*)m_Indices.data(), size);
+
+    infile.read((char*)&size, sizeof(size));
+    m_MeshGroups.resize(size / sizeof(MeshGroup_t));
+    infile.read((char*)m_MeshGroups.data(), size);
+
+
+}
+
+// Load from .obj
+Mesh::Mesh(const char* filename, const char* mtldir) : m_ModelToWorld(DirectX::XMMatrixIdentity())
+{
+    const char* ext;
+    ext = strrchr(filename, '.');
+
+    if (strcmp(ext, ".obj") == 0)
+    {
+        LoadFromObj(filename);
+        char outfile[80];
+        ZeroMemory(outfile, 80);
+        strncpy(outfile, filename, ext - filename);
+        strcat(outfile, ".dat");
+        SaveToDat(outfile);
+    }
+    else if (strcmp(ext, ".dat") == 0)
+    {
+        LoadFromDat(filename);
+    }
+
+    if (mtldir)
+    {
+        for (unsigned int i = 0; i < m_MeshGroups.size(); ++i)
+        {
+            char name[56];
+            ZeroMemory(name, 56);
+            sprintf(name, "%s/%s", mtldir, m_MeshGroups[i].materialName);
+
+            memcpy(m_MeshGroups[i].materialName, name, 56);
+        }
+    }
 
     InitBuffers();
 
@@ -487,7 +552,7 @@ void Mesh::Draw(bool drawDepth) const
         for (unsigned int i = 0; i < m_MeshGroups.size(); ++i)
         {
             const MeshGroup_t& meshGroup = m_MeshGroups[i];
-            meshGroup.material->SetMaterial(vscb, pscb);
+            materials->FindMaterial(meshGroup.materialName)->SetMaterial(vscb, pscb);
             render->GetDeviceContext()->DrawIndexed(meshGroup.indexCount, meshGroup.startIndex, 0);
         }
 

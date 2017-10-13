@@ -10,6 +10,7 @@
 
 struct Vertex
 {
+    Vertex() {}
     Vertex(const float3& position, const float2& texcoord, const float3& normal)
         : position(position), texcoord(texcoord), normal(normal)
     {}
@@ -28,7 +29,7 @@ struct MeshGroup_t
 {
     unsigned int startIndex;
     unsigned int indexCount;
-    std::shared_ptr<Material> material;
+    char materialName[56]; // Align to 64 bytes
 
 };
 
@@ -41,7 +42,7 @@ public:
     static Mesh CreateCone(int sides = 16, float radius = 1.0f, float height = 2.0f);
     static Mesh CreateTetrahedron(float size = 4.0f);
 
-    Mesh(const char* filename);
+    Mesh(const char* filename, const char* mtldir = nullptr);
     Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices);
     const DirectX::XMMATRIX& GetModelToWorld() const { return m_ModelToWorld; }
 
@@ -49,6 +50,9 @@ public:
 
 private:
     void InitBuffers();
+    void LoadFromObj(const char* filename);
+    void LoadFromDat(const char* filename);
+    void SaveToDat(const char* filename) const;
 
     ScopedObject<ID3D11Buffer> m_VertexBuffer;
     ScopedObject<ID3D11Buffer> m_IndexBuffer;    

@@ -11,6 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\src\dds.hpp" />
     <ClInclude Include="..\src\gui.hpp" />
     <ClInclude Include="..\src\inputsystem.hpp" />
     <ClInclude Include="..\src\materialsystem.hpp" />
@@ -18,16 +19,15 @@
     <ClInclude Include="..\src\mesh.hpp" />
     <ClInclude Include="..\src\render.hpp" />
     <ClInclude Include="..\src\utils.hpp" />
-    <ClInclude Include="..\src\WICTextureLoader.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\src\dds.cpp" />
     <ClCompile Include="..\src\gui.cpp" />
     <ClCompile Include="..\src\inputsystem.cpp" />
     <ClCompile Include="..\src\main.cpp" />
     <ClCompile Include="..\src\materialsystem.cpp" />
     <ClCompile Include="..\src\mesh.cpp" />
     <ClCompile Include="..\src\render.cpp" />
-    <ClCompile Include="..\src\WICTextureLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\src\phong.fx">
@@ -84,6 +84,8 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>comctl32.lib;d3d11.lib;d3dcompiler.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalManifestDependencies>
+      </AdditionalManifestDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">

@@ -38,7 +38,8 @@ enum TextureGroup_t
 {
     TEXTURE_GROUP_DIFFUSE = 0,
     TEXTURE_GROUP_NORMAL,
-    TEXTURE_GROUP_SHADOW_DEPTH
+    TEXTURE_GROUP_SHADOW_DEPTH,
+    TEXTURE_GROUP_OTHER
 };
 
 class Texture
@@ -102,6 +103,7 @@ public:
 private:
     std::shared_ptr<Texture> m_Albedo;
     std::shared_ptr<Texture> m_Normal;
+    std::shared_ptr<Texture> m_Specular;
     std::shared_ptr<Texture> m_ShadowDepth;
     ScopedObject<ID3D11SamplerState> m_SamplerState;
     ScopedObject<ID3D11SamplerState> m_SamplerState_Shadow;
