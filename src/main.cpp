@@ -44,9 +44,6 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
     case WM_RBUTTONUP:
         input->MouseReleased(MK_RBUTTON);
         break;
-    //case WM_MOUSEMOVE:
-    //    input->MousePos(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
-    //    break;
     default:
         // Handle any messages the switch statement didn't
         return DefWindowProc(hWnd, message, wParam, lParam);
@@ -110,7 +107,7 @@ bool InitApp(HINSTANCE hInstance, int nCmdShow)
     {
         render->Init(hViewportPanel);
     }
-    catch (std::exception& ex)
+    catch (const std::exception& ex)
     {
         MessageBox(hwnd, ex.what(), "Error", MB_OK);
         return false;

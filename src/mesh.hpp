@@ -51,21 +51,22 @@ private:
     void InitBuffers();
 
     ScopedObject<ID3D11Buffer> m_VertexBuffer;
-    ScopedObject<ID3D11Buffer> m_IndexBuffer;
-    
-    ScopedObject<ID3D11Buffer> m_DbgVertexBuffer_n;
-    ScopedObject<ID3D11Buffer> m_DbgVertexBuffer_s;
-    ScopedObject<ID3D11Buffer> m_DbgVertexBuffer_t;
+    ScopedObject<ID3D11Buffer> m_IndexBuffer;    
 
     std::vector<Vertex> m_Vertices;
     std::vector<unsigned int> m_Indices;
     std::vector<MeshGroup_t> m_MeshGroups;
 
+    DirectX::XMMATRIX m_ModelToWorld;
+
+#ifdef DEBUG_TANGENTS
+    ScopedObject<ID3D11Buffer> m_DbgVertexBuffer_n;
+    ScopedObject<ID3D11Buffer> m_DbgVertexBuffer_s;
+    ScopedObject<ID3D11Buffer> m_DbgVertexBuffer_t;
     std::vector<Vertex> m_DbgNormals;
     std::vector<Vertex> m_DbgTangent_s;
     std::vector<Vertex> m_DbgTangent_t;
-
-    DirectX::XMMATRIX m_ModelToWorld;
+#endif
 
 };
 

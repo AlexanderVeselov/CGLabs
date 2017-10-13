@@ -203,7 +203,7 @@ void Render::PushView(ViewSetup& view, std::shared_ptr<Texture> renderTexture)
 
     if (renderTexture == nullptr)
     {
-        float clearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
+        float clearColor[4] = { 0.3f, 0.5f, 0.8f, 1.0f };
         GetDeviceContext()->ClearRenderTargetView(m_RenderTargetView.Get(), clearColor);
         GetDeviceContext()->ClearDepthStencilView(m_DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
         GetDeviceContext()->OMSetRenderTargets(1, &m_RenderTargetView, m_DepthStencilView.Get());

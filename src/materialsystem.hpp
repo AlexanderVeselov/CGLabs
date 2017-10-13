@@ -18,6 +18,7 @@ public:
 private:
     ScopedObject<ID3D11VertexShader> m_VertexShader;
     ScopedObject<ID3D11InputLayout> m_InputLayout;
+    std::string m_Name;
 
 };
 
@@ -29,7 +30,15 @@ public:
 
 private:
     ScopedObject<ID3D11PixelShader> m_PixelShader;
+    std::string m_Name;
 
+};
+
+enum TextureGroup_t
+{
+    TEXTURE_GROUP_DIFFUSE = 0,
+    TEXTURE_GROUP_NORMAL,
+    TEXTURE_GROUP_SHADOW_DEPTH
 };
 
 class Texture
@@ -64,10 +73,10 @@ public:
 
     struct PSConstantBuffer
     {
-        float3 lightPositions[3];
-        float3 lightColors[3];
-        float3 viewPosition;
-        float3 phongScale;
+        float3_aligned lightPositions[3];
+        float3_aligned lightColors[3];
+        float3_aligned viewPosition;
+        float3_aligned phongScale;
     };
 
     virtual void SetMaterial(const VSConstantBuffer& vsBuffer, const PSConstantBuffer& psBuffer) const = 0;
@@ -92,6 +101,7 @@ public:
    
 private:
     std::shared_ptr<Texture> m_Albedo;
+    std::shared_ptr<Texture> m_Normal;
     std::shared_ptr<Texture> m_ShadowDepth;
     ScopedObject<ID3D11SamplerState> m_SamplerState;
     ScopedObject<ID3D11SamplerState> m_SamplerState_Shadow;
@@ -120,7 +130,7 @@ class MaterialSystem
 public:
     void Init();
     std::shared_ptr<Material>       FindMaterial(const char* filename);
-    std::shared_ptr<Texture>        FindTexture(const char* filename);
+    std::shared_ptr<Texture>        FindTexture(const char* filename, TextureGroup_t textureGroup = TEXTURE_GROUP_DIFFUSE);
     std::shared_ptr<VertexShader>   FindVertexShader(const char* filename);
     std::shared_ptr<PixelShader>    FindPixelShader(const char* filename);
     std::shared_ptr<Texture>        CreateRenderableTexture(unsigned int width, unsigned int height, const char* filename);

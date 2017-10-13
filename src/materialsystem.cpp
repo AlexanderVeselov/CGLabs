@@ -11,13 +11,14 @@ MaterialSystem* materials = &g_Materials;
 void MaterialSystem::Init()
 {
     m_Materials["depth"] = std::make_shared<DepthMaterial>();
-    m_Materials["debug_normal"] = std::make_shared<DebugMaterial>(materials->FindVertexShader("debug_vs"),    materials->FindPixelShader("debug_normal_ps"));
-    m_Materials["debug_tangent_s"] = std::make_shared<DebugMaterial>(materials->FindVertexShader("debug_vs"), materials->FindPixelShader("debug_tangent_s_ps"));
-    m_Materials["debug_tangent_t"] = std::make_shared<DebugMaterial>(materials->FindVertexShader("debug_vs"), materials->FindPixelShader("debug_tangent_t_ps"));
+    std::shared_ptr<VertexShader> debug_vs = materials->FindVertexShader("debug/base_vs");
+    m_Materials["debug_normal"]    = std::make_shared<DebugMaterial>(debug_vs, materials->FindPixelShader("debug/normal_ps"));
+    m_Materials["debug_tangent_s"] = std::make_shared<DebugMaterial>(debug_vs, materials->FindPixelShader("debug/tangent_s_ps"));
+    m_Materials["debug_tangent_t"] = std::make_shared<DebugMaterial>(debug_vs, materials->FindPixelShader("debug/tangent_t_ps"));
 
 }
 
-VertexShader::VertexShader(const char* filename)
+VertexShader::VertexShader(const char* filename) : m_Name(filename)
 {
     ID3DBlob* errorBlob;
     ID3DBlob* vertexShaderBuffer;
@@ -34,8 +35,8 @@ VertexShader::VertexShader(const char* filename)
 
     D3D11_INPUT_ELEMENT_DESC layout[] =
     {
-        { "POSITION",  0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,  D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "TEXCOORD",  0, DXGI_FORMAT_R32G32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "TANGENT_S", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "TANGENT_T", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }
@@ -52,7 +53,7 @@ void VertexShader::Set() const
     render->GetDeviceContext()->VSSetShader(m_VertexShader.Get(), nullptr, 0);
 }
 
-PixelShader::PixelShader(const char* filename)
+PixelShader::PixelShader(const char* filename) : m_Name(filename)
 {
     ID3DBlob* errorBlob;
     ID3DBlob* pixelShaderBuffer;
@@ -171,7 +172,7 @@ std::shared_ptr<PixelShader> MaterialSystem::FindPixelShader(const char* filenam
 
 }
 
-std::shared_ptr<Texture> MaterialSystem::FindTexture(const char* filename)
+std::shared_ptr<Texture> MaterialSystem::FindTexture(const char* filename, TextureGroup_t textureGroup)
 {
     std::map<std::string, std::shared_ptr<Texture> >::iterator it = m_Textures.find(filename);
     if (it != m_Textures.end())
@@ -179,8 +180,26 @@ std::shared_ptr<Texture> MaterialSystem::FindTexture(const char* filename)
         return it->second;
     }
 
-    m_Textures[filename] = std::make_shared<Texture>(filename);
-    return m_Textures[filename];
+    std::shared_ptr<Texture> texture;
+    try
+    {
+        texture = std::make_shared<Texture>(filename);
+        m_Textures[filename] = texture;
+        return texture;
+    }
+    catch (...)
+    {
+        // Failed to load texture
+        switch (textureGroup)
+        {
+        case TEXTURE_GROUP_DIFFUSE:
+            return FindTexture("checker");
+        case TEXTURE_GROUP_NORMAL:
+            return FindTexture("normal_flat");
+        default:
+            return FindTexture("black");
+        }
+    }
 
 }
 
@@ -257,6 +276,11 @@ WorldMaterial::WorldMaterial(FILE* file) : m_Albedo(nullptr)
             fscanf(file, "%s", buffer);
             m_Albedo = materials->FindTexture(buffer);
         }
+        else if (strcmp(buffer, "$normal") == 0)
+        {
+            fscanf(file, "%s", buffer);
+            m_Normal = materials->FindTexture(buffer, TEXTURE_GROUP_NORMAL);
+        }
         else if (strcmp(buffer, "$nocull") == 0)
         {
             rasterizerDesc.CullMode = D3D11_CULL_NONE;
@@ -267,7 +291,11 @@ WorldMaterial::WorldMaterial(FILE* file) : m_Albedo(nullptr)
         }
 
     }
-    m_ShadowDepth = materials->FindTexture("_rt_ShadowDepth");
+    m_ShadowDepth = materials->FindTexture("_rt_ShadowDepth", TEXTURE_GROUP_SHADOW_DEPTH);
+    if (!m_Normal)
+    {
+        m_Normal = materials->FindTexture("normal_flat", TEXTURE_GROUP_NORMAL);
+    }
     
     render->GetDevice()->CreateRasterizerState(&rasterizerDesc, &m_RasterizerState);
     
@@ -310,19 +338,20 @@ WorldMaterial::WorldMaterial(FILE* file) : m_Albedo(nullptr)
     sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
     render->GetDevice()->CreateSamplerState(&sampDesc, &m_SamplerState_Shadow);
     render->GetDeviceContext()->PSSetSamplers(1, 1, &m_SamplerState_Shadow);
+    /*
+    D3D11_BLEND_DESC omDesc;
+    ZeroMemory(&omDesc, sizeof(D3D11_BLEND_DESC));
+    omDesc.RenderTarget[0].BlendEnable = true;
+    omDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+    omDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+    omDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+    omDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+    omDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+    omDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+    omDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 
-    //D3D11_BLEND_DESC omDesc;
-    //ZeroMemory(&omDesc, sizeof(D3D11_BLEND_DESC));
-    //omDesc.RenderTarget[0].BlendEnable = true;
-    //omDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
-    //omDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
-    //omDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-    //omDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-    //omDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
-    //omDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-    //omDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-
-    //render->GetDevice()->CreateBlendState(&omDesc, &m_OpacityBlend);
+    render->GetDevice()->CreateBlendState(&omDesc, &m_OpacityBlend);
+    */
     
 }
 
@@ -330,6 +359,7 @@ void WorldMaterial::SetMaterial(const VSConstantBuffer& vsBuffer, const PSConsta
 {
     m_Albedo->Set(0);
     m_ShadowDepth->Set(1);
+    m_Normal->Set(2);
 
     m_VertexShader->Set();
     m_PixelShader->Set();
@@ -417,6 +447,7 @@ DebugMaterial::DebugMaterial(std::shared_ptr<VertexShader> vs, std::shared_ptr<P
     rasterizerDesc.FillMode = D3D11_FILL_SOLID;
     rasterizerDesc.CullMode = D3D11_CULL_NONE;
     render->GetDevice()->CreateRasterizerState(&rasterizerDesc, &m_RasterizerState);
+
 }
 
 void DebugMaterial::SetMaterial(const VSConstantBuffer& vsBuffer, const PSConstantBuffer& psBuffer) const

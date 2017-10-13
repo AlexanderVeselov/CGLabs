@@ -1,5 +1,6 @@
 Texture2D txDiffuse : register(t0);
 Texture2D txDepth : register(t1);
+Texture2D txNormal : register(t2);
 SamplerState samLinear : register(s0);
 SamplerComparisonState  samDepth : register(s1);
 
@@ -13,10 +14,10 @@ cbuffer ConstantBuffer : register(b0)
 
 cbuffer PSConstantBuffer : register(b1)
 {
-    float4 lightPositions[3];
-    float4 lightColors[3];
-    float4 viewPosition;
-    float4 phongScale;
+    float3 lightPositions[3];
+    float3 lightColors[3];
+    float3 viewPosition;
+    float3 phongScale;
 }
 
 struct VS_INPUT
@@ -58,7 +59,6 @@ VS_OUTPUT vs_main(VS_INPUT Input)
 
 float4 ps_main(VS_OUTPUT Input) : SV_Target
 {
-	//return float4(Input.Tangent_S * 0.5f + 0.5f, 1.0f);
     float3 albedo = txDiffuse.Sample(samLinear, Input.Texcoord).xyz;
     
     float3 ShadowPos;    
@@ -66,14 +66,18 @@ float4 ps_main(VS_OUTPUT Input) : SV_Target
     ShadowPos.y = -Input.ShadowPos.y / Input.ShadowPos.w * 0.5f + 0.5f;
     ShadowPos.z =  Input.ShadowPos.z / Input.ShadowPos.w;
 
+    float3x3 matTangentToWorld = transpose(float3x3(Input.Tangent_S, Input.Tangent_T, Input.Normal));
+    float3 normal = txNormal.Sample(samLinear, Input.Texcoord).xyz * 2.0f - 1.0f;
+    normal = normalize(mul(matTangentToWorld, normal));
+
     float3 shadow = txDepth.SampleCmpLevelZero(samDepth, ShadowPos.xy, ShadowPos.z - 0.001).xxx;
     if (ShadowPos.x > 1.0f || ShadowPos.x < 0.0f) shadow = 1.0f;
     if (ShadowPos.y > 1.0f || ShadowPos.y < 0.0f) shadow = 1.0f;
-    float diffuse = dot(normalize(lightPositions[0].xyz), normalize(Input.Normal));
-    return float4(diffuse * shadow, 1.0f);
+    float diffuse = dot(normalize(lightPositions[0].xyz), normal);
+    float3 ambient = float3(0.3, 0.5, 0.8) * 0.5f;
 
+    float phong = pow(saturate(dot(reflect(-normalize(viewPosition - Input.WorldPos), normal), normalize(lightPositions[0]))), 64.0f);
 
-    return float4(albedo, 1.0f);
-    return float4(albedo * dot(normalize(viewPosition.xyz - Input.WorldPos), Input.Normal), 1.0f);
+    return float4(albedo * (ambient + diffuse * shadow) + phong * shadow, 1.0f);
 
 }

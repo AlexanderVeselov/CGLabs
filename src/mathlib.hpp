@@ -41,6 +41,13 @@ private:
 
 };
 
+struct float3_aligned : public float3
+{
+    void operator= (const float3& other) { x = other.x; y = other.y; z = other.z; }
+private:
+    float w;
+};
+
 struct float2
 {
     float2(float x, float y) : x(x), y(y) {}

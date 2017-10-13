@@ -276,7 +276,7 @@ void Mesh::InitBuffers()
     indexBufferData.pSysMem = m_Indices.data();
     render->GetDevice()->CreateBuffer(&indexBufferDesc, &indexBufferData, &m_IndexBuffer);
 
-
+#ifdef DEBUG_TANGENTS
     D3D11_BUFFER_DESC dbgVertexBufferDesc;
     ZeroMemory(&dbgVertexBufferDesc, sizeof(dbgVertexBufferDesc));
 
@@ -292,6 +292,7 @@ void Mesh::InitBuffers()
     render->GetDevice()->CreateBuffer(&dbgVertexBufferDesc, &dbgVertexBufferData, &m_DbgVertexBuffer_s);
     dbgVertexBufferData.pSysMem = m_DbgTangent_t.data();
     render->GetDevice()->CreateBuffer(&dbgVertexBufferDesc, &dbgVertexBufferData, &m_DbgVertexBuffer_t);
+#endif
 
 }
 
@@ -302,6 +303,42 @@ std::string HashIntTriple(unsigned int a, unsigned int b, unsigned int c)
     std::stringstream ss;
     ss << a << " " << b << " " << c;
     return ss.str();
+}
+
+void ComputeTangentSpace(Vertex& v1, Vertex& v2, Vertex& v3)
+{
+    const float3& v1p = v1.position;
+    const float3& v2p = v2.position;
+    const float3& v3p = v3.position;
+
+    const float2& v1t = v1.texcoord;
+    const float2& v2t = v2.texcoord;
+    const float2& v3t = v3.texcoord;
+
+    double x1 = v2p.x - v1p.x;
+    double x2 = v3p.x - v1p.x;
+    double y1 = v2p.y - v1p.y;
+    double y2 = v3p.y - v1p.y;
+    double z1 = v2p.z - v1p.z;
+    double z2 = v3p.z - v1p.z;
+
+    double s1 = v2t.x - v1t.x;
+    double s2 = v3t.x - v1t.x;
+    double t1 = v2t.y - v1t.y;
+    double t2 = v3t.y - v1t.y;
+
+    double r = 1.0 / (s1 * t2 - s2 * t1);
+    float3 sdir((t2 * x1 - t1 * x2) * r, (t2 * y1 - t1 * y2) * r, (t2 * z1 - t1 * z2) * r);
+    float3 tdir((s1 * x2 - s2 * x1) * r, (s1 * y2 - s2 * y1) * r, (s1 * z2 - s2 * z1) * r);
+
+    v1.tangent_s += sdir;
+    v2.tangent_s += sdir;
+    v3.tangent_s += sdir;
+
+    v1.tangent_t += tdir;
+    v2.tangent_t += tdir;
+    v3.tangent_t += tdir;
+
 }
 
 // Load from .obj
@@ -363,10 +400,9 @@ Mesh::Mesh(const char* filename) : m_ModelToWorld(DirectX::XMMatrixIdentity())
                 }
                 else
                 {
-                  indexDictionary[triple] = newIndex;
-                  m_Vertices.push_back(Vertex(positions[iv[i]], texcoords[it[i]], normals[in[i]]));
-                  m_Indices.push_back(newIndex);
-                  ++newIndex;
+                    m_Vertices.push_back(Vertex(positions[iv[i]], texcoords[it[i]], normals[in[i]]));
+                    indexDictionary[triple] = newIndex;
+                    m_Indices.push_back(newIndex++);
                 }
                 ++meshGroup.indexCount;
             }
@@ -389,39 +425,7 @@ Mesh::Mesh(const char* filename) : m_ModelToWorld(DirectX::XMMatrixIdentity())
         unsigned int i2 = m_Indices[i + 1];
         unsigned int i3 = m_Indices[i + 2];
 
-        const float3& v1 = m_Vertices[i1].position;
-        const float3& v2 = m_Vertices[i2].position;
-        const float3& v3 = m_Vertices[i3].position;
-        
-        const float2& w1 = m_Vertices[i1].texcoord;
-        const float2& w2 = m_Vertices[i2].texcoord;
-        const float2& w3 = m_Vertices[i3].texcoord;
-        
-        float x1 = v2.x - v1.x;
-        float x2 = v3.x - v1.x;
-        float y1 = v2.y - v1.y;
-        float y2 = v3.y - v1.y;
-        float z1 = v2.z - v1.z;
-        float z2 = v3.z - v1.z;
-
-        float s1 = w2.x - w1.x;
-        float s2 = w3.x - w1.x;
-        float t1 = w2.y - w1.y;
-        float t2 = w3.y - w1.y;
-
-        float r = 1.0F / (s1 * t2 - s2 * t1);
-        float3 sdir((t2 * x1 - t1 * x2) * r, (t2 * y1 - t1 * y2) * r,
-            (t2 * z1 - t1 * z2) * r);
-        float3 tdir((s1 * x2 - s2 * x1) * r, (s1 * y2 - s2 * y1) * r,
-            (s1 * z2 - s2 * z1) * r);
-
-        m_Vertices[i1].tangent_s += sdir;
-        m_Vertices[i2].tangent_s += sdir;
-        m_Vertices[i3].tangent_s += sdir;
-
-        m_Vertices[i1].tangent_t += tdir;
-        m_Vertices[i2].tangent_t += tdir;
-        m_Vertices[i3].tangent_t += tdir;
+        ComputeTangentSpace(m_Vertices[i1], m_Vertices[i2], m_Vertices[i3]);
 
     }
 
@@ -431,18 +435,18 @@ Mesh::Mesh(const char* filename) : m_ModelToWorld(DirectX::XMMatrixIdentity())
         const float3& t = m_Vertices[i].tangent_t;
 
         m_Vertices[i].tangent_t = (t - n * dot(n, t)).normalize();
-        m_Vertices[i].tangent_s = cross(m_Vertices[i].normal, m_Vertices[i].tangent_t);
+        m_Vertices[i].tangent_s = cross(m_Vertices[i].tangent_t, m_Vertices[i].normal);
 
-        // Calculate handedness
-        //tangent[a].w = (Dot(Cross(n, t), tan2[a]) < 0.0F) ? -1.0F : 1.0F;
-    }    for (unsigned int i = 0; i < m_Indices.size(); ++i)    {        unsigned int index = m_Indices[i];
-        m_DbgNormals.push_back(Vertex(m_Vertices[index].position, m_Vertices[index].texcoord, m_Vertices[index].normal));
-        m_DbgNormals.push_back(Vertex(m_Vertices[index].position + m_Vertices[index].normal, m_Vertices[index].texcoord, m_Vertices[index].normal));        
-        m_DbgTangent_s.push_back(Vertex(m_Vertices[index].position, m_Vertices[index].texcoord, m_Vertices[index].normal));
-        m_DbgTangent_s.push_back(Vertex(m_Vertices[index].position + m_Vertices[index].tangent_s, m_Vertices[index].texcoord, m_Vertices[index].normal));
+    }
+#ifdef DEBUG_TANGENTS    for (unsigned int i = 0; i < m_Vertices.size(); ++i)    {
+        m_DbgNormals.push_back(Vertex(m_Vertices[i].position, m_Vertices[i].texcoord, m_Vertices[i].normal));
+        m_DbgNormals.push_back(Vertex(m_Vertices[i].position + m_Vertices[i].normal, m_Vertices[i].texcoord, m_Vertices[i].normal));        
+        m_DbgTangent_s.push_back(Vertex(m_Vertices[i].position, m_Vertices[i].texcoord, m_Vertices[i].normal));
+        m_DbgTangent_s.push_back(Vertex(m_Vertices[i].position + m_Vertices[i].tangent_s, m_Vertices[i].texcoord, m_Vertices[i].normal));
 
-        m_DbgTangent_t.push_back(Vertex(m_Vertices[index].position, m_Vertices[index].texcoord, m_Vertices[index].normal));
-        m_DbgTangent_t.push_back(Vertex(m_Vertices[index].position + m_Vertices[index].tangent_t, m_Vertices[index].texcoord, m_Vertices[index].normal));    }
+        m_DbgTangent_t.push_back(Vertex(m_Vertices[i].position, m_Vertices[i].texcoord, m_Vertices[i].normal));
+        m_DbgTangent_t.push_back(Vertex(m_Vertices[i].position + m_Vertices[i].tangent_t, m_Vertices[i].texcoord, m_Vertices[i].normal));    }
+#endif
 
     InitBuffers();
 
@@ -485,24 +489,26 @@ void Mesh::Draw(bool drawDepth) const
             const MeshGroup_t& meshGroup = m_MeshGroups[i];
             meshGroup.material->SetMaterial(vscb, pscb);
             render->GetDeviceContext()->DrawIndexed(meshGroup.indexCount, meshGroup.startIndex, 0);
-
         }
+
+#ifdef DEBUG_TANGENTS
+        materials->FindMaterial("debug_normal")->SetMaterial(vscb, pscb);
+        render->GetDeviceContext()->IASetVertexBuffers(0, 1, &m_DbgVertexBuffer_n, &stride, &offset);
+        render->GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+        render->GetDeviceContext()->Draw(m_DbgNormals.size(), 0);
+
+        materials->FindMaterial("debug_tangent_s")->SetMaterial(vscb, pscb);
+        render->GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+        render->GetDeviceContext()->IASetVertexBuffers(0, 1, &m_DbgVertexBuffer_s, &stride, &offset);
+        render->GetDeviceContext()->Draw(m_DbgTangent_s.size(), 0);
+
+        materials->FindMaterial("debug_tangent_t")->SetMaterial(vscb, pscb);
+        render->GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+        render->GetDeviceContext()->IASetVertexBuffers(0, 1, &m_DbgVertexBuffer_t, &stride, &offset);
+        render->GetDeviceContext()->Draw(m_DbgTangent_t.size(), 0);
+#endif
     }
 
-    materials->FindMaterial("debug_normal")->SetMaterial(vscb, pscb);
-    render->GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
-    render->GetDeviceContext()->IASetVertexBuffers(0, 1, &m_DbgVertexBuffer_n, &stride, &offset);
-    render->GetDeviceContext()->Draw(m_DbgNormals.size(), 0);
-
-    //materials->FindMaterial("debug_tangent_s")->SetMaterial(vscb, pscb);
-    //render->GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
-    //render->GetDeviceContext()->IASetVertexBuffers(0, 1, &m_DbgVertexBuffer_s, &stride, &offset);
-    //render->GetDeviceContext()->Draw(m_DbgTangent_s.size(), 0);
-
-    //materials->FindMaterial("debug_tangent_t")->SetMaterial(vscb, pscb);
-    //render->GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
-    //render->GetDeviceContext()->IASetVertexBuffers(0, 1, &m_DbgVertexBuffer_t, &stride, &offset);
-    //render->GetDeviceContext()->Draw(m_DbgTangent_t.size(), 0);
 
 }
 //
