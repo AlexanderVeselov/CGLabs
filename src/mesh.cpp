@@ -482,7 +482,7 @@ void Mesh::LoadFromDat(const char* filename)
 }
 
 // Load from .obj
-Mesh::Mesh(const char* filename, const char* mtldir) : m_ModelToWorld(DirectX::XMMatrixIdentity())
+Mesh::Mesh(const char* filename, const char* mtldir, const DirectX::XMMATRIX& modelToWorld, bool castShadow) : m_ModelToWorld(modelToWorld), m_CastShadow(castShadow)
 {
     const char* ext;
     ext = strrchr(filename, '.');
@@ -525,6 +525,11 @@ Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned int>&
 
 void Mesh::Draw(bool drawDepth) const
 {
+    if (drawDepth && !m_CastShadow)
+    {
+        return;
+    }
+
     UINT stride = sizeof(Vertex);
     UINT offset = 0;
 
@@ -534,6 +539,7 @@ void Mesh::Draw(bool drawDepth) const
     vscb.matModelToWorld = m_ModelToWorld;
     Material::PSConstantBuffer pscb;
     pscb.viewPosition = view->origin;
+    pscb.lightColor = float3(1.0f, 0.9f, 0.8f) * 2.0f;
 
     render->GetDeviceContext()->IASetVertexBuffers(0, 1, &m_VertexBuffer, &stride, &offset);
     render->GetDeviceContext()->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
@@ -548,7 +554,7 @@ void Mesh::Draw(bool drawDepth) const
     {
         const ViewSetup* shadowView = render->GetPreviousView();
         vscb.matShadowToWorld = DirectX::XMMatrixTranspose(shadowView->matWorldToCamera);
-        pscb.lightPositions[0] = shadowView->origin;
+        pscb.lightPos = shadowView->origin;
         for (unsigned int i = 0; i < m_MeshGroups.size(); ++i)
         {
             const MeshGroup_t& meshGroup = m_MeshGroups[i];

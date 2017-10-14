@@ -8,14 +8,6 @@ cbuffer ConstantBuffer : register(b0)
 
 }
 
-cbuffer PSConstantBuffer : register(b1)
-{
-    float4 lightPositions[3];
-    float4 lightColors[3];
-    float4 viewPosition;
-    float4 phongScale;
-}
-
 struct VS_INPUT
 {
     float4 Position : POSITION0;

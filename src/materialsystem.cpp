@@ -225,7 +225,7 @@ std::shared_ptr<Material> MaterialSystem::FindMaterial(const char* filename)
 
     char fullpath[80];
     sprintf(fullpath, "materials/%s.mtl", filename);
-    std::shared_ptr<WorldMaterial> material = nullptr;
+    std::shared_ptr<Material> material = nullptr;
     FILE* file = fopen(fullpath, "r");
     if (file == nullptr)
     {
@@ -243,10 +243,10 @@ std::shared_ptr<Material> MaterialSystem::FindMaterial(const char* filename)
                 material = std::make_shared<WorldMaterial>(file);
                 m_Materials[filename] = material;
             }
-            else if (strcmp(buffer, "depth") == 0)
+            else if (strcmp(buffer, "sky") == 0)
             {
-                // Create depth material
-
+                material = std::make_shared<SkyMaterial>(file);
+                m_Materials[filename] = material;
             }
         }
 
@@ -258,7 +258,55 @@ std::shared_ptr<Material> MaterialSystem::FindMaterial(const char* filename)
     
 }
 
-WorldMaterial::WorldMaterial(FILE* file) : m_Albedo(nullptr)
+void Material::SetMaterial(const VSConstantBuffer& vsBuffer, const PSConstantBuffer& psBuffer) const
+{
+    m_VertexShader->Set();
+    m_PixelShader->Set();
+
+    render->GetDeviceContext()->RSSetState(m_RasterizerState.Get());
+
+    render->GetDeviceContext()->UpdateSubresource(m_VSConstantBuffer.Get(), 0, nullptr, &vsBuffer, 0, 0);
+    render->GetDeviceContext()->VSSetConstantBuffers(0, 1, &m_VSConstantBuffer);
+
+    render->GetDeviceContext()->UpdateSubresource(m_PSConstantBuffer.Get(), 0, nullptr, &psBuffer, 0, 0);
+    render->GetDeviceContext()->PSSetConstantBuffers(1, 1, &m_PSConstantBuffer);
+}
+
+void Material::InitConstantBuffers()
+{
+    D3D11_BUFFER_DESC vsConstantBufferDesc;
+    ZeroMemory(&vsConstantBufferDesc, sizeof(vsConstantBufferDesc));
+    vsConstantBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+    vsConstantBufferDesc.ByteWidth = sizeof(VSConstantBuffer);
+    vsConstantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    render->GetDevice()->CreateBuffer(&vsConstantBufferDesc, nullptr, &m_VSConstantBuffer);
+
+    D3D11_BUFFER_DESC psConstantBufferDesc;
+    ZeroMemory(&psConstantBufferDesc, sizeof(psConstantBufferDesc));
+    psConstantBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+    psConstantBufferDesc.ByteWidth = sizeof(PSConstantBuffer);
+    psConstantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    render->GetDevice()->CreateBuffer(&psConstantBufferDesc, nullptr, &m_PSConstantBuffer);
+
+}
+
+void Material::InitSampler(ScopedObject<ID3D11SamplerState>& samplerState, D3D11_FILTER filter,
+    D3D11_TEXTURE_ADDRESS_MODE addressMode, D3D11_COMPARISON_FUNC comparisonFunc) const
+{
+    D3D11_SAMPLER_DESC sampDesc;
+    ZeroMemory(&sampDesc, sizeof(sampDesc));
+    sampDesc.Filter = filter;
+    sampDesc.AddressU = addressMode;
+    sampDesc.AddressV = addressMode;
+    sampDesc.AddressW = addressMode;
+    sampDesc.ComparisonFunc = comparisonFunc;
+    sampDesc.MinLOD = 0;
+    sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+    render->GetDevice()->CreateSamplerState(&sampDesc, &samplerState);
+}
+
+WorldMaterial::WorldMaterial(FILE* file)
 {
     m_VertexShader = materials->FindVertexShader("world");
     m_PixelShader = materials->FindPixelShader("world");
@@ -294,9 +342,10 @@ WorldMaterial::WorldMaterial(FILE* file) : m_Albedo(nullptr)
         {
             rasterizerDesc.FillMode = D3D11_FILL_WIREFRAME;
         }
-
     }
+
     m_ShadowDepth = materials->FindTexture("_rt_ShadowDepth", TEXTURE_GROUP_SHADOW_DEPTH);
+
     if (!m_Normal)
     {
         m_Normal = materials->FindTexture("normal_flat", TEXTURE_GROUP_NORMAL);
@@ -307,46 +356,13 @@ WorldMaterial::WorldMaterial(FILE* file) : m_Albedo(nullptr)
     }
     
     render->GetDevice()->CreateRasterizerState(&rasterizerDesc, &m_RasterizerState);
+    InitConstantBuffers();
     
-    D3D11_BUFFER_DESC vsConstantBufferDesc;
-    ZeroMemory(&vsConstantBufferDesc, sizeof(vsConstantBufferDesc));
+    InitSampler(m_SamplerLinear, D3D11_FILTER_MIN_MAG_MIP_LINEAR);
+    render->GetDeviceContext()->PSSetSamplers(0, 1, &m_SamplerLinear);
+    InitSampler(m_SamplerShadowDepth, D3D11_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT, D3D11_TEXTURE_ADDRESS_CLAMP, D3D11_COMPARISON_LESS);
+    render->GetDeviceContext()->PSSetSamplers(1, 1, &m_SamplerShadowDepth);
 
-    vsConstantBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-    vsConstantBufferDesc.ByteWidth = sizeof(VSConstantBuffer);
-    vsConstantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    render->GetDevice()->CreateBuffer(&vsConstantBufferDesc, nullptr, &m_VSConstantBuffer);
-
-    // Create PS Constant Buffer
-    D3D11_BUFFER_DESC psConstantBufferDesc;
-    ZeroMemory(&psConstantBufferDesc, sizeof(psConstantBufferDesc));
-
-    psConstantBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-    psConstantBufferDesc.ByteWidth = sizeof(PSConstantBuffer);
-    psConstantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    render->GetDevice()->CreateBuffer(&psConstantBufferDesc, nullptr, &m_PSConstantBuffer);
-
-    D3D11_SAMPLER_DESC sampDesc;
-    ZeroMemory(&sampDesc, sizeof(sampDesc));
-    sampDesc.Filter = D3D11_FILTER_ANISOTROPIC;
-    sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-    sampDesc.MinLOD = 0;
-    sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-    render->GetDevice()->CreateSamplerState(&sampDesc, &m_SamplerState);
-    render->GetDeviceContext()->PSSetSamplers(0, 1, &m_SamplerState);
-
-    ZeroMemory(&sampDesc, sizeof(sampDesc));
-    sampDesc.Filter = D3D11_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
-    sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-    sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-    sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
-    sampDesc.ComparisonFunc = D3D11_COMPARISON_LESS;
-    sampDesc.MinLOD = 0;
-    sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-    render->GetDevice()->CreateSamplerState(&sampDesc, &m_SamplerState_Shadow);
-    render->GetDeviceContext()->PSSetSamplers(1, 1, &m_SamplerState_Shadow);
     /*
     D3D11_BLEND_DESC omDesc;
     ZeroMemory(&omDesc, sizeof(D3D11_BLEND_DESC));
@@ -371,17 +387,67 @@ void WorldMaterial::SetMaterial(const VSConstantBuffer& vsBuffer, const PSConsta
     m_Normal->Set(2);
     m_Specular->Set(3);
 
-    m_VertexShader->Set();
-    m_PixelShader->Set();
-
-    render->GetDeviceContext()->RSSetState(m_RasterizerState.Get());
-
-    render->GetDeviceContext()->UpdateSubresource(m_VSConstantBuffer.Get(), 0, nullptr, &vsBuffer, 0, 0);
-    render->GetDeviceContext()->VSSetConstantBuffers(0, 1, &m_VSConstantBuffer);
-
-    render->GetDeviceContext()->UpdateSubresource(m_PSConstantBuffer.Get(), 0, nullptr, &psBuffer, 0, 0);
-    render->GetDeviceContext()->PSSetConstantBuffers(1, 1, &m_PSConstantBuffer);
+    Material::SetMaterial(vsBuffer, psBuffer);
     
+}
+
+SkyMaterial::SkyMaterial(FILE* file)
+{
+    m_VertexShader = materials->FindVertexShader("sky");
+    m_PixelShader = materials->FindPixelShader("sky");
+
+    D3D11_RASTERIZER_DESC rasterizerDesc;
+    ZeroMemory(&rasterizerDesc, sizeof(D3D11_RASTERIZER_DESC));
+    rasterizerDesc.FillMode = D3D11_FILL_SOLID;
+    rasterizerDesc.CullMode = D3D11_CULL_BACK;
+
+    char buffer[128];
+    while (fscanf(file, "%s", buffer) != EOF)
+    {
+        if (strcmp(buffer, "$albedo") == 0)
+        {
+            fscanf(file, "%s", buffer);
+            m_Albedo = materials->FindTexture(buffer);
+        }
+        else if (strcmp(buffer, "$nocull") == 0)
+        {
+            rasterizerDesc.CullMode = D3D11_CULL_NONE;
+        }
+        else if (strcmp(buffer, "$wireframe") == 0)
+        {
+            rasterizerDesc.FillMode = D3D11_FILL_WIREFRAME;
+        }
+    }
+
+    render->GetDevice()->CreateRasterizerState(&rasterizerDesc, &m_RasterizerState);
+    InitConstantBuffers();
+
+    InitSampler(m_SamplerLinear, D3D11_FILTER_MIN_MAG_MIP_LINEAR);
+    render->GetDeviceContext()->PSSetSamplers(0, 1, &m_SamplerLinear);
+
+    /*
+    D3D11_BLEND_DESC omDesc;
+    ZeroMemory(&omDesc, sizeof(D3D11_BLEND_DESC));
+    omDesc.RenderTarget[0].BlendEnable = true;
+    omDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+    omDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+    omDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+    omDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+    omDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+    omDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+    omDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+    render->GetDevice()->CreateBlendState(&omDesc, &m_OpacityBlend);
+    */
+
+}
+
+void SkyMaterial::SetMaterial(const VSConstantBuffer& vsBuffer, const PSConstantBuffer& psBuffer) const
+{
+    m_Albedo->Set(0);
+
+    Material::SetMaterial(vsBuffer, psBuffer);
+
 }
 
 DepthMaterial::DepthMaterial()
@@ -389,22 +455,7 @@ DepthMaterial::DepthMaterial()
     m_VertexShader = materials->FindVertexShader("depth");
     m_PixelShader = materials->FindPixelShader("depth");
 
-    D3D11_BUFFER_DESC vsConstantBufferDesc;
-    ZeroMemory(&vsConstantBufferDesc, sizeof(vsConstantBufferDesc));
-
-    vsConstantBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-    vsConstantBufferDesc.ByteWidth = sizeof(VSConstantBuffer);
-    vsConstantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    render->GetDevice()->CreateBuffer(&vsConstantBufferDesc, nullptr, &m_VSConstantBuffer);
-
-    // Create PS Constant Buffer
-    D3D11_BUFFER_DESC psConstantBufferDesc;
-    ZeroMemory(&psConstantBufferDesc, sizeof(psConstantBufferDesc));
-
-    psConstantBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-    psConstantBufferDesc.ByteWidth = sizeof(PSConstantBuffer);
-    psConstantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    render->GetDevice()->CreateBuffer(&psConstantBufferDesc, nullptr, &m_PSConstantBuffer);
+    InitConstantBuffers();
     
     D3D11_RASTERIZER_DESC rasterizerDesc;
     ZeroMemory(&rasterizerDesc, sizeof(D3D11_RASTERIZER_DESC));
@@ -412,21 +463,6 @@ DepthMaterial::DepthMaterial()
     rasterizerDesc.CullMode = D3D11_CULL_NONE;
     render->GetDevice()->CreateRasterizerState(&rasterizerDesc, &m_RasterizerState);
 
-
-}
-
-void DepthMaterial::SetMaterial(const VSConstantBuffer& vsBuffer, const PSConstantBuffer& psBuffer) const
-{
-    m_VertexShader->Set();
-    m_PixelShader->Set();
-
-    render->GetDeviceContext()->RSSetState(m_RasterizerState.Get());
-
-    render->GetDeviceContext()->UpdateSubresource(m_VSConstantBuffer.Get(), 0, nullptr, &vsBuffer, 0, 0);
-    render->GetDeviceContext()->VSSetConstantBuffers(0, 1, &m_VSConstantBuffer);
-
-    render->GetDeviceContext()->UpdateSubresource(m_PSConstantBuffer.Get(), 0, nullptr, &psBuffer, 0, 0);
-    render->GetDeviceContext()->PSSetConstantBuffers(1, 1, &m_PSConstantBuffer);
 
 }
 
@@ -435,42 +471,12 @@ DebugMaterial::DebugMaterial(std::shared_ptr<VertexShader> vs, std::shared_ptr<P
     m_VertexShader = vs;
     m_PixelShader = ps;
 
-    D3D11_BUFFER_DESC vsConstantBufferDesc;
-    ZeroMemory(&vsConstantBufferDesc, sizeof(vsConstantBufferDesc));
-
-    vsConstantBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-    vsConstantBufferDesc.ByteWidth = sizeof(VSConstantBuffer);
-    vsConstantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    render->GetDevice()->CreateBuffer(&vsConstantBufferDesc, nullptr, &m_VSConstantBuffer);
-
-    // Create PS Constant Buffer
-    D3D11_BUFFER_DESC psConstantBufferDesc;
-    ZeroMemory(&psConstantBufferDesc, sizeof(psConstantBufferDesc));
-
-    psConstantBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-    psConstantBufferDesc.ByteWidth = sizeof(PSConstantBuffer);
-    psConstantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    render->GetDevice()->CreateBuffer(&psConstantBufferDesc, nullptr, &m_PSConstantBuffer);
+    InitConstantBuffers();
 
     D3D11_RASTERIZER_DESC rasterizerDesc;
     ZeroMemory(&rasterizerDesc, sizeof(D3D11_RASTERIZER_DESC));
     rasterizerDesc.FillMode = D3D11_FILL_SOLID;
     rasterizerDesc.CullMode = D3D11_CULL_NONE;
     render->GetDevice()->CreateRasterizerState(&rasterizerDesc, &m_RasterizerState);
-
-}
-
-void DebugMaterial::SetMaterial(const VSConstantBuffer& vsBuffer, const PSConstantBuffer& psBuffer) const
-{
-    m_VertexShader->Set();
-    m_PixelShader->Set();
-
-    render->GetDeviceContext()->RSSetState(m_RasterizerState.Get());
-
-    render->GetDeviceContext()->UpdateSubresource(m_VSConstantBuffer.Get(), 0, nullptr, &vsBuffer, 0, 0);
-    render->GetDeviceContext()->VSSetConstantBuffers(0, 1, &m_VSConstantBuffer);
-
-    render->GetDeviceContext()->UpdateSubresource(m_PSConstantBuffer.Get(), 0, nullptr, &psBuffer, 0, 0);
-    render->GetDeviceContext()->PSSetConstantBuffers(1, 1, &m_PSConstantBuffer);
 
 }

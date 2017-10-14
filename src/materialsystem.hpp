@@ -72,17 +72,23 @@ public:
         DirectX::XMMATRIX matShadowToWorld;
     };
 
+    
     struct PSConstantBuffer
     {
-        float3_aligned lightPositions[3];
-        float3_aligned lightColors[3];
+        float3_aligned lightPos;
+        float3_aligned lightColor;
         float3_aligned viewPosition;
         float3_aligned phongScale;
     };
 
-    virtual void SetMaterial(const VSConstantBuffer& vsBuffer, const PSConstantBuffer& psBuffer) const = 0;
+    virtual void SetMaterial(const VSConstantBuffer& vsBuffer, const PSConstantBuffer& psBuffer) const;
 
 protected:
+    void InitConstantBuffers();
+    void InitSampler(ScopedObject<ID3D11SamplerState>& samplerState, D3D11_FILTER filter,
+        D3D11_TEXTURE_ADDRESS_MODE addressMode = D3D11_TEXTURE_ADDRESS_WRAP,
+        D3D11_COMPARISON_FUNC comparisonFunc = D3D11_COMPARISON_NEVER) const;
+
     ScopedObject<ID3D11Buffer> m_VSConstantBuffer;
     ScopedObject<ID3D11Buffer> m_PSConstantBuffer;
 
@@ -105,26 +111,34 @@ private:
     std::shared_ptr<Texture> m_Normal;
     std::shared_ptr<Texture> m_Specular;
     std::shared_ptr<Texture> m_ShadowDepth;
-    ScopedObject<ID3D11SamplerState> m_SamplerState;
-    ScopedObject<ID3D11SamplerState> m_SamplerState_Shadow;
+    ScopedObject<ID3D11SamplerState> m_SamplerLinear;
+    ScopedObject<ID3D11SamplerState> m_SamplerShadowDepth;
 
+};
+
+class SkyMaterial : public Material
+{
+public:
+    SkyMaterial(FILE* file);
+    virtual void SetMaterial(const VSConstantBuffer& vsBuffer, const PSConstantBuffer& psBuffer) const;
+
+private:
+    std::shared_ptr<Texture> m_Albedo;
+    ScopedObject<ID3D11SamplerState> m_SamplerLinear;
 };
 
 class DepthMaterial : public Material
 {
 public:
     DepthMaterial();
-    virtual void SetMaterial(const VSConstantBuffer& vsBuffer, const PSConstantBuffer& psBuffer) const;
-private:
-
+    
 };
 
 class DebugMaterial : public Material
 {
 public:
     DebugMaterial(std::shared_ptr<VertexShader> vs, std::shared_ptr<PixelShader> ps);
-    virtual void SetMaterial(const VSConstantBuffer& vsBuffer, const PSConstantBuffer& psBuffer) const;
-    
+        
 };
 
 class MaterialSystem

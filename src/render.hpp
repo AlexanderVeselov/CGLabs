@@ -30,7 +30,7 @@ struct ViewSetup
         target(1.0f, 0.0f, 0.0f),
         up(0.0f, 0.0f, 1.0f),
         ortho(false),
-        fov(DirectX::XM_PIDIV4),
+        fov(DirectX::XM_PIDIV2),
         farZ(1024.0f),
         nearZ(1.0f)
     {}

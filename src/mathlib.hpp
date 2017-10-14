@@ -41,12 +41,7 @@ private:
 
 };
 
-struct float3_aligned : public float3
-{
-    void operator= (const float3& other) { x = other.x; y = other.y; z = other.z; }
-private:
-    float w;
-};
+#define float3_aligned _declspec(align(16)) float3
 
 struct float2
 {

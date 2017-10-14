@@ -46,7 +46,7 @@ private:
 Camera::Camera(const D3D11_VIEWPORT* viewport)
     :   m_Pitch(DirectX::XM_PIDIV2),
         m_Yaw(0.0f),
-        m_Speed(0.1f)
+        m_Speed(0.25f)
 {
     RECT rc;
     GetClientRect(render->GetHWND(), &rc);
@@ -55,6 +55,7 @@ Camera::Camera(const D3D11_VIEWPORT* viewport)
     m_View.y = rc.left;
     m_View.width = rc.right - rc.left;
     m_View.height = rc.bottom - rc.top;
+    m_View.farZ = 16384.0f;
     m_View.viewSize = float2(m_View.width, m_View.height);
 
 }
@@ -155,23 +156,24 @@ void Render::InitD3D()
 
 void Render::InitScene()
 {    
-    // Create meshes
-    //m_Meshes.push_back(Mesh("meshes/plane.obj"));
-    //m_Meshes.push_back(Mesh("meshes/cube.obj"));
-    //m_Meshes.push_back(Mesh("meshes/cone.obj"));
+    try
+    {
+        m_Meshes.push_back(std::make_shared<Mesh>("meshes/sponza.dat", "sponza"));
+        m_Meshes.push_back(std::make_shared<Mesh>("meshes/skysphere.obj", nullptr, DirectX::XMMatrixScaling(1000.0f, 1000.0f, 1000.0f), false));
+        m_Camera = std::make_unique<Camera>(&m_Viewport);
+    }
+    catch (const std::exception& ex)
+    {
+        MessageBox(m_hWnd, ex.what(), "Error", MB_OK);
 
-    m_Meshes.push_back(std::make_shared<Mesh>("meshes/sponza.dat", "sponza"));
-    //m_Meshes.push_back(std::make_shared<Mesh>("meshes/room.obj"));
-    
-    m_Camera = std::make_unique<Camera>(&m_Viewport);
-  
+    }  
 }
 
 void Render::Init(HWND hWnd)
 {
     m_hWnd = hWnd;
     
-    guimanager->AddTrackbar(20, 100, 200, "light_pitch", 0.0f, DirectX::XM_PIDIV2, DirectX::XM_PIDIV4, DirectX::XM_PIDIV2 / 32);
+    guimanager->AddTrackbar(20, 100, 200, "light_pitch", 0.0f, DirectX::XM_PIDIV2, DirectX::XM_PIDIV2 * 0.75f, DirectX::XM_PIDIV2 / 32);
     guimanager->AddTrackbar(20, 150, 200, "light_yaw", 0.0f, DirectX::XM_2PI, DirectX::XM_PIDIV4, DirectX::XM_2PI / 32);
 
     InitD3D();
@@ -267,4 +269,5 @@ void Render::RenderFrame()
 
 void Render::Shutdown()
 {
+    // Nothing to shut down, objects release automatically!
 }

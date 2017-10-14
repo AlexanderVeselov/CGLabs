@@ -42,7 +42,7 @@ public:
     static Mesh CreateCone(int sides = 16, float radius = 1.0f, float height = 2.0f);
     static Mesh CreateTetrahedron(float size = 4.0f);
 
-    Mesh(const char* filename, const char* mtldir = nullptr);
+    Mesh(const char* filename, const char* mtldir = nullptr, const DirectX::XMMATRIX& modelToWorld = DirectX::XMMatrixIdentity(), bool castShadow = true);
     Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices);
     const DirectX::XMMATRIX& GetModelToWorld() const { return m_ModelToWorld; }
 
@@ -62,6 +62,8 @@ private:
     std::vector<MeshGroup_t> m_MeshGroups;
 
     DirectX::XMMATRIX m_ModelToWorld;
+
+    bool m_CastShadow;
 
 #ifdef DEBUG_TANGENTS
     ScopedObject<ID3D11Buffer> m_DbgVertexBuffer_n;
