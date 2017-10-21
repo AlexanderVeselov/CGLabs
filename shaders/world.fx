@@ -10,6 +10,7 @@ cbuffer ConstantBuffer : register(b0)
     matrix matWorld;
     matrix matViewProjection;
     matrix matShadowToWorld;
+    float3 vs_viewPosition;
 
 }
 
@@ -52,15 +53,15 @@ VS_OUTPUT vs_main(VS_INPUT Input)
     Output.ShadowPos = mul(Output.Position, matShadowToWorld);
 
     Output.Position = mul(Output.Position, matViewProjection);
-    Output.Normal   = Input.Normal;
-    Output.Tangent_S = Input.Tangent_S;
-    Output.Tangent_T = Input.Tangent_T;
+    Output.Normal   = mul(Input.Normal, matWorld);
+    Output.Tangent_S = mul(Input.Tangent_S, matWorld);
+    Output.Tangent_T = mul(Input.Tangent_T, matWorld);
     return Output;
 }
 
 float SampleShadow(float3 coord)
 {
-    float shadow = txDepth.SampleCmpLevelZero(samDepth, coord.xy, coord.z - 0.001).xxx;
+    float shadow = txDepth.SampleCmpLevelZero(samDepth, coord.xy, coord.z - 0.0025).xxx;
     if (coord.x > 1.0f || coord.x < 0.0f) shadow = 1.0f;
     if (coord.y > 1.0f || coord.y < 0.0f) shadow = 1.0f;
     return shadow;
@@ -86,10 +87,10 @@ float4 ps_main(VS_OUTPUT Input) : SV_Target
     float3 normal = txNormal.Sample(samLinear, Input.Texcoord).xyz * 2.0f - 1.0f;
     normal = normalize(mul(matTangentToWorld, normal));
 
-    float3 diffuse = max(dot(normalize(lightPos.xyz), normal), 0.0f) * lightColor;
+    float3 diffuse = max(dot(normalize(lightPos.xyz - viewPosition.xyz), normal), 0.0f) * lightColor;
     float3 ambient = float3(0.3, 0.5, 0.8) * 0.5f;
 
-    float phong = pow(saturate(dot(reflect(-normalize(viewPosition - Input.WorldPos), normal), normalize(lightPos))), 64.0f) * 2.0f;
+    float phong = pow(saturate(dot(reflect(-normalize(viewPosition - Input.WorldPos), normal), normalize(lightPos.xyz - viewPosition.xyz))), 64.0f) * 2.0f;
 
     float3 ShadowPos;    
     ShadowPos.x =  Input.ShadowPos.x / Input.ShadowPos.w * 0.5f + 0.5f;

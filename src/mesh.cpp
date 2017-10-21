@@ -1,12 +1,8 @@
 #include "mesh.hpp"
-#include "mathlib.hpp"
-#include "render.hpp"
 #include "materialsystem.hpp"
-#include "utils.hpp"
 #include <cctype>
 #include <fstream>
 #include <string>
-
 
 class FileReader
 {
@@ -276,24 +272,6 @@ void Mesh::InitBuffers()
     indexBufferData.pSysMem = m_Indices.data();
     render->GetDevice()->CreateBuffer(&indexBufferDesc, &indexBufferData, &m_IndexBuffer);
 
-#ifdef DEBUG_TANGENTS
-    D3D11_BUFFER_DESC dbgVertexBufferDesc;
-    ZeroMemory(&dbgVertexBufferDesc, sizeof(dbgVertexBufferDesc));
-
-    dbgVertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-    dbgVertexBufferDesc.ByteWidth = sizeof(Vertex) * m_DbgNormals.size();
-    dbgVertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-
-    D3D11_SUBRESOURCE_DATA dbgVertexBufferData;
-    ZeroMemory(&dbgVertexBufferData, sizeof(dbgVertexBufferData));
-    dbgVertexBufferData.pSysMem = m_DbgNormals.data();
-    render->GetDevice()->CreateBuffer(&dbgVertexBufferDesc, &dbgVertexBufferData, &m_DbgVertexBuffer_n);
-    dbgVertexBufferData.pSysMem = m_DbgTangent_s.data();
-    render->GetDevice()->CreateBuffer(&dbgVertexBufferDesc, &dbgVertexBufferData, &m_DbgVertexBuffer_s);
-    dbgVertexBufferData.pSysMem = m_DbgTangent_t.data();
-    render->GetDevice()->CreateBuffer(&dbgVertexBufferDesc, &dbgVertexBufferData, &m_DbgVertexBuffer_t);
-#endif
-
 }
 
 #include <unordered_map>
@@ -376,18 +354,21 @@ void Mesh::LoadFromObj(const char* filename)
             meshGroup.indexCount = 0;
             break;
         case ObjReader::OBJ_POSITION:
-            positions.push_back(float3(objReader.GetVectorValue().x, objReader.GetVectorValue().y, objReader.GetVectorValue().z));
+            positions.push_back(float3(objReader.GetVectorValue().x, -objReader.GetVectorValue().y, objReader.GetVectorValue().z));
             //m_Vertices.push_back(Vertex(positions.back()));
             break;
         case ObjReader::OBJ_NORMAL:
-            normals.push_back(float3(objReader.GetVectorValue().x, objReader.GetVectorValue().y, objReader.GetVectorValue().z));
+            normals.push_back(float3(objReader.GetVectorValue().x, -objReader.GetVectorValue().y, objReader.GetVectorValue().z));
             break;
         case ObjReader::OBJ_TEXCOORD:
-            texcoords.push_back(float2(1.0f - objReader.GetVectorValue().x, 1.0f - objReader.GetVectorValue().y));
+            texcoords.push_back(float2(objReader.GetVectorValue().x, 1.0f - objReader.GetVectorValue().y));
             break;
         case ObjReader::OBJ_FACE:
-            const unsigned int *iv, *it, *in;
-            objReader.GetFaceIndices(&iv, &it, &in);
+            unsigned int *iv, *it, *in;
+            objReader.GetFaceIndices((const unsigned int**)&iv, (const unsigned int**)&it, (const unsigned int**)&in);
+            std::swap(iv[0], iv[1]);
+            std::swap(it[0], it[1]);
+            std::swap(in[0], in[1]);
 
             // Re-index Mesh
             for (size_t i = 0; i < 3; ++i)
@@ -403,8 +384,7 @@ void Mesh::LoadFromObj(const char* filename)
                     indexDictionary[triple] = newIndex;
                     m_Indices.push_back(newIndex++);
                 }
-                ++meshGroup.indexCount;
-            }
+                ++meshGroup.indexCount;            }
             break;
         case ObjReader::OBJ_SMOOTHINGGROUP:
             break;
@@ -431,16 +411,7 @@ void Mesh::LoadFromObj(const char* filename)
         m_Vertices[i].tangent_t = (t - n * dot(n, t)).normalize();
         m_Vertices[i].tangent_s = cross(m_Vertices[i].tangent_t, m_Vertices[i].normal);
 
-    }
-#ifdef DEBUG_TANGENTS    for (unsigned int i = 0; i < m_Vertices.size(); ++i)    {
-        m_DbgNormals.push_back(Vertex(m_Vertices[i].position, m_Vertices[i].texcoord, m_Vertices[i].normal));
-        m_DbgNormals.push_back(Vertex(m_Vertices[i].position + m_Vertices[i].normal, m_Vertices[i].texcoord, m_Vertices[i].normal));
-        m_DbgTangent_s.push_back(Vertex(m_Vertices[i].position, m_Vertices[i].texcoord, m_Vertices[i].normal));
-        m_DbgTangent_s.push_back(Vertex(m_Vertices[i].position + m_Vertices[i].tangent_s, m_Vertices[i].texcoord, m_Vertices[i].normal));
-
-        m_DbgTangent_t.push_back(Vertex(m_Vertices[i].position, m_Vertices[i].texcoord, m_Vertices[i].normal));
-        m_DbgTangent_t.push_back(Vertex(m_Vertices[i].position + m_Vertices[i].tangent_t, m_Vertices[i].texcoord, m_Vertices[i].normal));    }
-#endif
+    }
 }
 
 // Maybe not good, but much faster than loading obj...
@@ -482,7 +453,7 @@ void Mesh::LoadFromDat(const char* filename)
 }
 
 // Load from .obj
-Mesh::Mesh(const char* filename, const char* mtldir, const DirectX::XMMATRIX& modelToWorld, bool castShadow) : m_ModelToWorld(modelToWorld), m_CastShadow(castShadow)
+Mesh::Mesh(const char* filename, const char* mtldir, const Matrix& modelToWorld, bool castShadow) : m_ModelToWorld(modelToWorld), m_CastShadow(castShadow)
 {
     const char* ext;
     ext = strrchr(filename, '.');
@@ -518,12 +489,12 @@ Mesh::Mesh(const char* filename, const char* mtldir, const DirectX::XMMATRIX& mo
 }
 
 Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices)
-    : m_Vertices(vertices), m_Indices(indices)
+    : m_Vertices(vertices), m_Indices(indices), m_ModelToWorld(Matrix::Identity())
 {
     InitBuffers();
 }
 
-void Mesh::Draw(bool drawDepth) const
+void Mesh::Draw(bool drawDepth)
 {
     if (drawDepth && !m_CastShadow)
     {
@@ -535,8 +506,10 @@ void Mesh::Draw(bool drawDepth) const
 
     const ViewSetup* view = render->GetCurrentView();
     Material::VSConstantBuffer vscb;
-    vscb.matWorldToCamera = DirectX::XMMatrixTranspose(view->matWorldToCamera);
+    vscb.matWorldToCamera = view->matWorldToCamera.Transpose();
     vscb.matModelToWorld = m_ModelToWorld;
+    vscb.viewPosition = view->origin;
+    
     Material::PSConstantBuffer pscb;
     pscb.viewPosition = view->origin;
     pscb.lightColor = float3(1.0f, 0.9f, 0.8f) * 2.0f;
@@ -553,7 +526,7 @@ void Mesh::Draw(bool drawDepth) const
     else
     {
         const ViewSetup* shadowView = render->GetPreviousView();
-        vscb.matShadowToWorld = DirectX::XMMatrixTranspose(shadowView->matWorldToCamera);
+        vscb.matShadowToWorld = shadowView->matWorldToCamera.Transpose();
         pscb.lightPos = shadowView->origin;
         for (unsigned int i = 0; i < m_MeshGroups.size(); ++i)
         {
@@ -562,215 +535,306 @@ void Mesh::Draw(bool drawDepth) const
             render->GetDeviceContext()->DrawIndexed(meshGroup.indexCount, meshGroup.startIndex, 0);
         }
 
-#ifdef DEBUG_TANGENTS
-        materials->FindMaterial("debug_normal")->SetMaterial(vscb, pscb);
-        render->GetDeviceContext()->IASetVertexBuffers(0, 1, &m_DbgVertexBuffer_n, &stride, &offset);
-        render->GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
-        render->GetDeviceContext()->Draw(m_DbgNormals.size(), 0);
-
-        materials->FindMaterial("debug_tangent_s")->SetMaterial(vscb, pscb);
-        render->GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
-        render->GetDeviceContext()->IASetVertexBuffers(0, 1, &m_DbgVertexBuffer_s, &stride, &offset);
-        render->GetDeviceContext()->Draw(m_DbgTangent_s.size(), 0);
-
-        materials->FindMaterial("debug_tangent_t")->SetMaterial(vscb, pscb);
-        render->GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
-        render->GetDeviceContext()->IASetVertexBuffers(0, 1, &m_DbgVertexBuffer_t, &stride, &offset);
-        render->GetDeviceContext()->Draw(m_DbgTangent_t.size(), 0);
-#endif
     }
 
 
 }
-//
-//Mesh Mesh::CreateCylinder(int sides, float height)
-//{
-//    std::vector<Vertex> vertices;
-//    std::vector<unsigned int> indices;
-//
-//    // index 0
-//    vertices.push_back(Vertex(0.0f, 0.0f, 0.0f, 0.0f, 0.0f));
-//    // index 1
-//    vertices.push_back(Vertex(0.0f, 0.0f, height, 1.0f, 1.0f));
-//    for (int i = 0; i < sides; ++i)
-//    {
-//        // index i + 2
-//        vertices.push_back(Vertex(std::cosf(DirectX::XM_2PI * i / sides), std::sinf(DirectX::XM_2PI * i / sides), 0.0f, 1.0f - (float)i / sides, 1));
-//        // index i + 3
-//        vertices.push_back(Vertex(std::cosf(DirectX::XM_2PI * i / sides), std::sinf(DirectX::XM_2PI * i / sides), height, 1.0f - (float)i / sides, 0));
-//
-//        unsigned int imul2plus2 = (i == sides - 1) ? 0 : (i * 2 + 2);
-//
-//        indices.push_back(i * 2 + 2);
-//        indices.push_back(0);
-//        indices.push_back(imul2plus2 + 2);
-//
-//        indices.push_back(i * 2 + 3);
-//        indices.push_back(i * 2 + 2);
-//        indices.push_back(imul2plus2 + 2);
-//
-//        indices.push_back(i * 2 + 3);
-//        indices.push_back(imul2plus2 + 2);
-//        indices.push_back(imul2plus2 + 3);
-//
-//        indices.push_back(1);
-//        indices.push_back(i * 2 + 3);
-//        indices.push_back(imul2plus2 + 3);
-//    }
-//
-//
-//    return Mesh(vertices, indices);
-//}
-//
-//Mesh Mesh::CreateTorus(int segments, int sides, float radius1, float radius2)
-//{
-//    std::vector<Vertex> vertices;
-//    std::vector<unsigned int> indices;
-//
-//    for (int i = 0; i < segments; ++i)
-//    {
-//        //DirectX::XMMATRIX worldToSegment1 = DirectX::XMMatrixRotationX(DirectX::XM_PIDIV2);
-//        //worldToSegment1 *= DirectX::XMMatrixRotationZ(DirectX::XM_2PI * i / segments);
-//        //worldToSegment1 *= DirectX::XMMatrixTranslation(std::cosf(DirectX::XM_2PI * i / segments) * radius1, std::sinf(DirectX::XM_2PI * i / segments) * radius1, 0.0f);
-//
-//        for (int j = 0; j < sides; ++j)
-//        {
-//            float theta = DirectX::XM_2PI * i / segments;
-//            float phi = DirectX::XM_2PI * j / sides;
-//
-//            //vertices.push_back(Vertex(std::cosf(DirectX::XM_2PI * j / sides) * radius2, std::sinf(DirectX::XM_2PI * j / sides) * radius2, 0.0f, worldToSegment1));
-//            vertices.push_back(Vertex((radius1 + radius2 * std::cosf(theta)) * std::cosf(phi), (radius1 + radius2 * std::cosf(theta)) * std::sinf(phi), radius2 * std::sinf(theta), (float)i / segments, (float)j / sides));
-//
-//            unsigned int iplus1 = (i == segments - 1) ? 0 : (i + 1);
-//            unsigned int jplus1 = (j == sides - 1) ? 0 : (j + 1);
-//
-//            indices.push_back(iplus1 * sides + j);
-//            indices.push_back(i * sides + j);
-//            indices.push_back(i * sides + jplus1);
-//
-//            indices.push_back(iplus1 * sides + j);
-//            indices.push_back(i * sides + jplus1);
-//            indices.push_back(iplus1 * sides + jplus1);
-//
-//        }
-//    }
-//
-//    return Mesh(vertices, indices);
-//}
-//
-//Mesh Mesh::CreateSphere(int segments, float radius)
-//{
-//    std::vector<Vertex> vertices;
-//    std::vector<unsigned int> indices;
-//
-//    vertices.push_back(Vertex(0.0f, 0.0f, radius));
-//    vertices.push_back(Vertex(0.0f, 0.0f, -radius));
-//    for (int i = 0; i < segments - 1; ++i)
-//    {
-//        for (int j = 0; j < segments; ++j)
-//        {
-//            float theta = DirectX::XM_PI * (i + 1) / segments;
-//            float phi = DirectX::XM_2PI * j / segments;
-//
-//            vertices.push_back(Vertex(std::cosf(phi) * std::sinf(theta) * radius, std::sinf(phi) * std::sinf(theta) * radius, std::cosf(theta) * radius));
-//
-//            unsigned int jplus1 = (j == segments - 1) ? 0 : (j + 1);
-//            if (i == 0)
-//            {
-//                indices.push_back(0);
-//                indices.push_back(j + 2);
-//                indices.push_back(jplus1 + 2);
-//            }
-//            if (i < segments - 2)
-//            {
-//                indices.push_back(i * segments + j + 2);
-//                indices.push_back((i + 1) * segments + j + 2);
-//                indices.push_back(i * segments + jplus1 + 2);
-//
-//                indices.push_back((i + 1) * segments + j + 2);
-//                indices.push_back((i + 1) * segments + jplus1 + 2);
-//                indices.push_back(i * segments + jplus1 + 2);
-//            }
-//            if (i == segments - 2)
-//            {
-//                indices.push_back(1);
-//                indices.push_back(i * segments + j + 2);
-//                indices.push_back(i * segments + jplus1 + 2);
-//            }
-//
-//        }
-//    }
-//
-//    return Mesh(vertices, indices);
-//}
-//
-//Mesh Mesh::CreateCone(int sides, float radius, float height)
-//{
-//    std::vector<Vertex> vertices;
-//    std::vector<unsigned int> indices;
-//
-//    // index 0
-//    vertices.push_back(Vertex(0.0f, 0.0f, 0.0f, 0.0f, 0.0f));
-//    // index 1
-//    vertices.push_back(Vertex(0.0f, 0.0f, height, 1.0f, 1.0f));
-//    for (int i = 0; i < sides; ++i)
-//    {
-//        // index i + 2
-//        vertices.push_back(Vertex(std::cosf(DirectX::XM_2PI * i / sides), std::sinf(DirectX::XM_2PI * i / sides), 0.0f, 1.0f - (float)i / sides, 1));
-//        
-//        unsigned int iplus2 = (i == sides - 1) ? 0 : (i + 1);
-//
-//        indices.push_back(i + 2);
-//        indices.push_back(0);
-//        indices.push_back(iplus2 + 2);
-//
-//        indices.push_back(1);
-//        indices.push_back(i + 2);
-//        indices.push_back(iplus2 + 2);
-//    }
-//
-//
-//    return Mesh(vertices, indices);
-//}
-//
-//Mesh Mesh::CreateTetrahedron(float size)
-//{
-//    std::vector<Vertex> vertices;
-//    std::vector<unsigned int> indices;
-//
-//    float sqrt3 = 1.732f;
-//    float sqrt6 = 2.4494f;
-//    
-//    vertices.push_back(Vertex(0.0f, 0.0f, 0.0f, 0.0f, 0.0f));
-//    vertices.push_back(Vertex(size, 0.0f, 0.0f, size, 0.0f));
-//    vertices.push_back(Vertex(0.5f * size, sqrt3 / 2.0f * size, 0.0f, 1.0f, 1.0f));
-//    vertices.push_back(Vertex(0.5f * size, sqrt3 / 6.0f * size, sqrt6 / 3.0f * size, 0.5f, 1.0f));
-//
-//    indices.push_back(0);
-//    indices.push_back(2);
-//    indices.push_back(1);
-//    
-//    indices.push_back(1);
-//    indices.push_back(2);
-//    indices.push_back(3);
-//    
-//    indices.push_back(0);
-//    indices.push_back(1);
-//    indices.push_back(3);
-//
-//    indices.push_back(2);
-//    indices.push_back(0);
-//    indices.push_back(3);
-//
-//    return Mesh(vertices, indices);
-//}
-//
-//Vertex VertexLerp(const Vertex& v1, const Vertex& v2, float factor)
-//{
-//    return Vertex(v1.position.x * (1 - factor) + v2.position.x * factor,
-//        v1.position.y * (1 - factor) + v2.position.y * factor,
-//        v1.position.z * (1 - factor) + v2.position.z * factor,
-//        v1.texcoord.x * (1 - factor) + v2.texcoord.x * factor,
-//        v1.texcoord.y * (1 - factor) + v2.texcoord.y * factor);
-//
-//}
+
+#define MAX_COORD_INTEGER 16384
+
+std::vector<Vertex> BaseWindingForPlane(float3 normal, float dist)
+{
+    int		i, x;
+    float	max, v;
+    float3	org, vright, vup;
+    std::vector<Vertex>	w;
+
+    // find the major axis
+    max = -1;
+    x = -1;
+    for (i = 0; i<3; i++)
+    {
+        v = fabs(normal[i]);
+        if (v > max)
+        {
+            x = i;
+            max = v;
+        }
+    }
+    if (x == -1)
+    {
+        throw std::exception("BaseWindingForPlane: no axis found");
+    }
+
+    switch (x)
+    {
+    case 0:
+    case 1:
+        vup.z = 1;
+        break;
+    case 2:
+        vup.x = 1;
+        break;
+    }
+
+    v = dot(vup, normal);
+    vup -= normal * v;
+    vup = vup.normalize();
+    org = normal * dist;
+
+    vright = cross(vup, normal);
+    vup *= 1024.0f;
+    vright *= 1024.0f;
+            
+    w.push_back(Vertex(org - vright + vup, float2(0.0f, 0.0f) * 64.0f, normal));
+    w.push_back(Vertex(org + vright + vup, float2(0.0f, 1.0f) * 64.0f, normal));
+    w.push_back(Vertex(org + vright - vup, float2(1.0f, 1.0f) * 64.0f, normal));
+    w.push_back(Vertex(org - vright - vup, float2(1.0f, 0.0f) * 64.0f, normal));
+    
+    return w;
+}
+
+#define MAX_POINTS_ON_WINDING 64
+#define	SIDE_FRONT	0
+#define	SIDE_BACK	1
+#define	SIDE_ON		2
+#define SIDE_CROSS  -2
+
+std::vector<Vertex> ChopWindingInPlace(const std::vector<Vertex>& in, const float3 &normal, float dist, float epsilon)
+{
+    float	dists[MAX_POINTS_ON_WINDING + 4];
+    int		sides[MAX_POINTS_ON_WINDING + 4];
+    
+    int		counts[3];
+    counts[0] = counts[1] = counts[2] = 0;
+    // determine sides for each point
+    unsigned int i;
+    for (i = 0; i < in.size(); i++)
+    {
+        float dotp = dot(in[i].position, normal);
+        dotp -= dist;
+        dists[i] = dotp;
+        if (dotp > epsilon)
+        {
+            sides[i] = SIDE_FRONT;
+        }
+        else if (dotp < -epsilon)
+        {
+            sides[i] = SIDE_BACK;
+        }
+        else
+        {
+            sides[i] = SIDE_ON;
+        }
+        counts[sides[i]]++;
+    }
+    sides[i] = sides[0];
+    dists[i] = dists[0];
+    
+    if (!counts[0] || !counts[1])
+    {
+        return in;
+    }
+
+    std::vector<Vertex> f;
+    for (i = 0; i < in.size(); i++)
+    {
+
+        if (sides[i] == SIDE_ON)
+        {
+            f.push_back(in[i]);
+            continue;
+        }
+
+        if (sides[i] == SIDE_BACK)
+        {
+            f.push_back(in[i]);
+        }
+
+        if (sides[i + 1] == SIDE_ON || sides[i + 1] == sides[i])
+            continue;
+
+        // generate a split point
+        const Vertex& v1 = in[i];
+        const Vertex& v2 = in[(i + 1) % in.size()];
+
+        float3	mid;
+        float dotp = dists[i] / (dists[i] - dists[i + 1]);
+
+        f.push_back(Vertex(v1.position + (v2.position - v1.position) * dotp, v1.texcoord + (v2.texcoord - v1.texcoord) * dotp, v1.normal));
+
+    }
+
+    return f;
+}
+
+AnimatedPolyhedron::AnimatedPolyhedron(float3 origin) : m_Velocity(1.0f, 0.0f, 0.0f), m_PlaneAngle(0.0), m_CurrentAngle(1.0), m_CurrentSide(0), m_CurrentEdge(0)
+{
+    std::vector<Plane_t> planes;
+    m_ModelToWorld = Matrix::Translation(0, 0, 8);
+    m_Velocity.normalize();
+    
+    planes.push_back({ float3( 0,  0, -1), 8 });
+    planes.push_back({ float3( 0,  0,  1), 8 });
+    planes.push_back({ float3( 1,  0,  0), 8 });
+    planes.push_back({ float3(-1,  0,  0), 8 });
+    planes.push_back({ float3( 0,  1,  0), 8 });
+    planes.push_back({ float3( 0, -1,  0), 8 });
+
+    for (unsigned int i = 0; i < 8; ++i)
+    {
+        float yaw = (float)rand() / RAND_MAX * MATH_2PI;
+        float pitch = - (float)rand() / RAND_MAX * MATH_2PI * 0.9f;
+        float3 n(std::cosf(yaw)*std::cosf(pitch), std::sinf(yaw)*std::cosf(pitch), std::sinf(pitch));
+        planes.push_back({ n, 8 });
+    }
+
+    unsigned int index = 0;
+    for (unsigned int i = 0; i < planes.size(); ++i)
+    {
+        std::vector<Vertex>	w = BaseWindingForPlane(planes[i].normal, planes[i].dist);
+
+        for (unsigned int j = 0; j < planes.size(); ++j)
+        {
+            if (i == j) continue;
+            w = ChopWindingInPlace(w, planes[j].normal, planes[j].dist, 0);
+        }
+        
+        for (unsigned int j = 2; j < w.size(); j++)
+        {
+            Vertex& v1 = w[0];
+            Vertex& v2 = w[j];
+            Vertex& v3 = w[j - 1];
+            ComputeTangentSpace(v1, v2, v3);
+
+            m_Vertices.push_back(v1);
+            m_Indices.push_back(index++);
+            m_Vertices.push_back(v2);
+            m_Indices.push_back(index++);
+            m_Vertices.push_back(v3);
+            m_Indices.push_back(index++);
+        }
+        Side_t side;
+        side.center = float3(0.0f);
+        for (unsigned int j = 0; j < w.size(); ++j)
+        {
+            side.positions.push_back(w[j].position);
+            side.center += w[j].position;
+        }
+        side.center *= 1.0f / w.size();
+        side.plane = planes[i];
+        m_Sides.push_back(side);
+    }
+
+    for (unsigned int i = 0; i < m_Vertices.size(); ++i)
+    {
+        float3& n = m_Vertices[i].normal;
+        const float3& t = m_Vertices[i].tangent_t;
+
+        m_Vertices[i].tangent_t = (t - n * dot(n, t)).normalize();
+        m_Vertices[i].tangent_s = cross(m_Vertices[i].tangent_t, m_Vertices[i].normal);
+
+    }
+
+    for (unsigned int i = 0; i < m_Sides.size(); ++i)
+    {
+        Side_t& side1 = m_Sides[i];
+        for (unsigned int k = 0; k < side1.positions.size(); ++k)
+        {
+            for (unsigned int j = 0; j < m_Sides.size(); ++j)
+            {
+                if (i == j) continue;
+                Side_t& side2 = m_Sides[j];
+                for (unsigned int s = 0; s < side2.positions.size(); ++s)
+                {
+                    const float eps = 0.001f;
+                    float dist1 = distance(side1.positions[k % side1.positions.size()], side2.positions[s % side2.positions.size()]);
+                    float dist2 = distance(side1.positions[(k + 1) % side1.positions.size()], side2.positions[(s + 1) % side2.positions.size()]);
+                    
+                    float dist3 = distance(side1.positions[k % side1.positions.size()], side2.positions[(s + 1) % side2.positions.size()]);
+                    float dist4 = distance(side1.positions[(k + 1) % side1.positions.size()], side2.positions[s % side2.positions.size()]);
+
+                    if (dist1 < eps && dist2 < eps || dist3 < eps && dist4 < eps)
+                    {
+                        side1.neighbors.push_back({ j, s });
+                    }
+
+                }
+            }
+        }
+    }
+    
+    MeshGroup_t meshGroup;
+    meshGroup.startIndex = 0;
+    meshGroup.indexCount = m_Indices.size();
+    strcpy(meshGroup.materialName, "debug_checker");
+    m_MeshGroups.push_back(meshGroup);
+    InitBuffers();
+
+}
+
+void AnimatedPolyhedron::Draw(bool drawDepth)
+{    
+    if (m_CurrentAngle >= m_PlaneAngle)
+    {
+        if (m_PlaneAngle > 0.0f)
+        {
+            m_ModelToWorld = Matrix::RotationAxisAroundPoint(v1 - v2, v1, -m_CurrentAngle + m_PlaneAngle) * m_ModelToWorld;
+        }
+        float dot1 = -2.0f;
+        unsigned int point1 = -1;
+        float3 velocity = m_Velocity.normalize();
+        for (unsigned int i = 0; i < m_Sides[m_CurrentSide].positions.size(); ++i)
+        {
+            float3 point = m_Sides[m_CurrentSide].positions[i];
+            float3 pointWorld = m_ModelToWorld * point;
+            float3 center = m_Sides[m_CurrentSide].center;
+            float3 centerWorld = m_ModelToWorld * center;
+            float3 vec = (pointWorld - centerWorld).normalize();
+            float dotp = dot(vec, velocity);
+            if (dotp > dot1)
+            {
+                dot1 = dotp;
+                point1 = i;
+            }
+        }
+
+        dot1 = -2.0f;
+        unsigned int point2 = -1;
+        for (unsigned int i = 0; i < m_Sides[m_CurrentSide].positions.size(); ++i)
+        {
+            if (i == point1) continue;
+            float3 point = m_Sides[m_CurrentSide].positions[i];
+            float3 pointWorld = m_ModelToWorld * point;
+            float3 center = m_Sides[m_CurrentSide].center;
+            float3 centerWorld = m_ModelToWorld * center;
+            float3 vec = (pointWorld - centerWorld).normalize();
+            float dotp = dot(vec, velocity);
+            if (dotp > dot1)
+            {
+                dot1 = dotp;
+                point2 = i;
+            }
+        }
+        const Neighbor_t& neighbor = m_Sides[m_CurrentSide].neighbors[point2 > point1 ? point1 : point2];
+        m_PlaneAngle = std::acosf(dot(m_Sides[neighbor.sideIndex].plane.normal, m_Sides[m_CurrentSide].plane.normal));
+        m_CurrentSide = neighbor.sideIndex;
+        m_CurrentEdge = neighbor.edgeIndex;
+        m_CurrentAngle = 0.0f;
+
+        v1 = m_ModelToWorld * m_Sides[m_CurrentSide].positions[m_CurrentEdge];
+        v2 = m_ModelToWorld * m_Sides[m_CurrentSide].positions[(m_CurrentEdge + 1) % m_Sides[m_CurrentSide].positions.size()];
+        float speed = m_Velocity.length();
+        float3 cr = cross(v1 - v2, float3(0.0f, 0.0f, 1.0f));
+
+        m_Velocity = cr.normalize() * speed;
+
+    }
+
+    float deltaAngle = MATH_PI / 4.0 * render->GetDeltaTime();
+    m_CurrentAngle += deltaAngle;
+    m_ModelToWorld = Matrix::RotationAxisAroundPoint(v1 - v2, v1, deltaAngle) * m_ModelToWorld;
+        
+    Mesh::Draw(drawDepth);
+
+}

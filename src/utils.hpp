@@ -3,7 +3,6 @@
 
 #include <stdexcept>
 #include <sstream>
-#include <memory>
 
 #define THROW_RUNTIME(message) \
     throw std::runtime_error(((std::ostringstream&) (std::ostringstream("") << message)).str().c_str());

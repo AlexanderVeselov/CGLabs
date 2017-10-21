@@ -26,9 +26,20 @@ VertexShader::VertexShader(const char* filename) : m_Name(filename)
     wchar_t shadername[80];
     swprintf(shadername, L"shaders/%S.fx", filename);
 
-    if (FAILED(D3DCompileFromFile(shadername, nullptr, nullptr, "vs_main", "vs_5_0", 0, 0, &vertexShaderBuffer, &errorBlob)))
+    HRESULT hr = D3DCompileFromFile(shadername, nullptr, nullptr, "vs_main", "vs_5_0", 0, 0, &vertexShaderBuffer, &errorBlob);
+    if (FAILED(hr))
     {
-        THROW_RUNTIME((char*)errorBlob->GetBufferPointer())
+        if (errorBlob)
+        {
+            MessageBox(render->GetHWND(), (char*)errorBlob->GetBufferPointer(), "Error", 0);
+            THROW_RUNTIME((char*)errorBlob->GetBufferPointer())
+        }
+        else
+        {
+            char info[80];
+            sprintf(info, "Error compiling Vertex Shader HRESULT: %d", hr);
+            THROW_RUNTIME(info);
+        }
     }
 
     render->GetDevice()->CreateVertexShader(vertexShaderBuffer->GetBufferPointer(), vertexShaderBuffer->GetBufferSize(), nullptr, &m_VertexShader);

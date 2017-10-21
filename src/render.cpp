@@ -11,20 +11,16 @@ Render* render = &g_Render;
 
 void ViewSetup::ComputeMatrices()
 {
-    // View Matrix
-    DirectX::XMVECTOR Eye = DirectX::XMVectorSet(origin.x, origin.y, origin.z, 0.0f);
-    DirectX::XMVECTOR At = DirectX::XMVectorSet(target.x, target.y, target.z, 0.0f);
-    DirectX::XMVECTOR Up = DirectX::XMVectorSet(up.x, up.y, up.z, 0.0f);
-    matWorldToCamera = DirectX::XMMatrixLookAtLH(Eye, At, Up);
-    
+    matWorldToCamera = Matrix::LookAtLH(origin, target, up);
+        
     // Projection Matrix
     if (ortho)
     {
-        matWorldToCamera *= DirectX::XMMatrixOrthographicLH(viewSize.x, viewSize.y, nearZ, farZ);
+        matWorldToCamera *= Matrix::OrthoLH(viewSize.x, viewSize.y, nearZ, farZ);
     }
     else
     {
-        matWorldToCamera *= DirectX::XMMatrixPerspectiveFovLH(fov, viewSize.x / viewSize.y, nearZ, farZ);
+        matWorldToCamera *= Matrix::PerspectiveFovLH(fov, viewSize.x / viewSize.y, nearZ, farZ);
     }
 }
 
@@ -44,9 +40,9 @@ private:
 };
 
 Camera::Camera(const D3D11_VIEWPORT* viewport)
-    :   m_Pitch(DirectX::XM_PIDIV2),
-        m_Yaw(0.0f),
-        m_Speed(0.25f)
+    :   m_Pitch(MATH_PIDIV2),
+        m_Yaw(-MATH_PI),
+        m_Speed(64.0f)
 {
     RECT rc;
     GetClientRect(render->GetHWND(), &rc);
@@ -55,8 +51,9 @@ Camera::Camera(const D3D11_VIEWPORT* viewport)
     m_View.y = rc.left;
     m_View.width = rc.right - rc.left;
     m_View.height = rc.bottom - rc.top;
-    m_View.farZ = 16384.0f;
+    m_View.farZ = 4096.0f;
     m_View.viewSize = float2(m_View.width, m_View.height);
+    m_View.origin = float3(32.0f, 0.0f, 32.0f);
 
 }
 
@@ -74,7 +71,7 @@ void Camera::Update()
         m_Yaw += (x - point.x) * sensivity;
         m_Pitch += (y - point.y) * sensivity;
         float epsilon = 0.0001f;
-        m_Pitch = clamp(m_Pitch, 0.0f + epsilon, DirectX::XM_PI - epsilon);
+        m_Pitch = clamp(m_Pitch, 0.0f + epsilon, MATH_PI - epsilon);
         input->SetMousePos(point.x, point.y);
     }
     else
@@ -84,11 +81,10 @@ void Camera::Update()
     
     int frontback = input->IsKeyDown('W') - input->IsKeyDown('S');
     int strafe = input->IsKeyDown('A') - input->IsKeyDown('D');
-    m_View.origin += float3(std::cosf(m_Yaw) * std::sinf(m_Pitch) * frontback + std::cosf(m_Yaw - DirectX::XM_PIDIV2) * strafe,
-        std::sinf(m_Yaw) * std::sinf(m_Pitch) * frontback + std::sinf(m_Yaw - DirectX::XM_PIDIV2) * strafe, std::cosf(m_Pitch) * frontback) * m_Speed;
+    m_View.origin += float3(std::cosf(m_Yaw) * std::sinf(m_Pitch) * frontback + std::cosf(m_Yaw - MATH_PIDIV2) * strafe,
+        std::sinf(m_Yaw) * std::sinf(m_Pitch) * frontback + std::sinf(m_Yaw - MATH_PIDIV2) * strafe, std::cosf(m_Pitch) * frontback) * render->GetDeltaTime() * m_Speed;
     m_View.target = m_View.origin + float3(std::cosf(m_Yaw) * std::sinf(m_Pitch), std::sinf(m_Yaw) * std::sinf(m_Pitch), std::cosf(m_Pitch));
-
-
+    
 }
 
 void Render::InitD3D()
@@ -151,30 +147,35 @@ void Render::InitD3D()
     descDSV.Texture2D.MipSlice = 0;
     GetDevice()->CreateDepthStencilView(depthStencilTexture.Get(), &descDSV, &m_DepthStencilView);
     
-
 }
 
 void Render::InitScene()
 {    
-    try
-    {
-        m_Meshes.push_back(std::make_shared<Mesh>("meshes/sponza.dat", "sponza"));
-        m_Meshes.push_back(std::make_shared<Mesh>("meshes/skysphere.obj", nullptr, DirectX::XMMatrixScaling(1000.0f, 1000.0f, 1000.0f), false));
-        m_Camera = std::make_unique<Camera>(&m_Viewport);
-    }
-    catch (const std::exception& ex)
-    {
-        MessageBox(m_hWnd, ex.what(), "Error", MB_OK);
-
-    }  
+    //m_Meshes.push_back(std::make_shared<Mesh>("meshes/sponza.dat", "sponza"));
+    m_Meshes.push_back(std::make_shared<Mesh>("meshes/skysphere.obj", nullptr, Matrix::Scaling(100.0f, 100.0f, 100.0f), false));
+    m_Meshes.push_back(std::make_shared<AnimatedPolyhedron>(float3(0, 0, 10.0f)));
+    m_Meshes.push_back(std::make_shared<Mesh>("meshes/axis.obj", nullptr, Matrix::Scaling(32.0f, 32.0f, 32.0f)));
+    m_Meshes.push_back(std::make_shared<Mesh>("meshes/plane_1024.obj"));
+    //for (unsigned int i = 0; i < 10; ++i)
+    //{
+    //    float x = (float)rand() / RAND_MAX * 512.0f - 256.0f;
+    //    float y = (float)rand() / RAND_MAX * 512.0f - 256.0f;
+    //    m_Meshes.push_back(std::make_shared<AnimatedPolyhedron>(float3(x, y, 10.0f)));
+    //}
+    m_Camera = std::make_unique<Camera>(&m_Viewport);
 }
 
 void Render::Init(HWND hWnd)
 {
     m_hWnd = hWnd;
-    
-    guimanager->AddTrackbar(20, 100, 200, "light_pitch", 0.0f, DirectX::XM_PIDIV2, DirectX::XM_PIDIV2 * 0.75f, DirectX::XM_PIDIV2 / 32);
-    guimanager->AddTrackbar(20, 150, 200, "light_yaw", 0.0f, DirectX::XM_2PI, DirectX::XM_PIDIV4, DirectX::XM_2PI / 32);
+    m_PreviousFrameTime = GetCurtime();
+
+    guimanager->AddTrackbar(20, 100, 200, "light_pitch", 0.0f, MATH_PIDIV2, MATH_PIDIV4 * 0.5f, MATH_PIDIV2 / 32);
+    guimanager->AddTrackbar(20, 150, 200, "light_yaw", 0.0f, MATH_2PI, MATH_PIDIV4, MATH_2PI / 32);
+    guimanager->AddTrackbar(20, 200, 200, "test_rotation1", 0.0f, MATH_2PI, 0.0f, MATH_2PI / 32);
+    guimanager->AddTrackbar(20, 250, 200, "test_position1", 0.0f, 32.0f, 0.0f, 32.0f / 64.0f);
+    guimanager->AddTrackbar(20, 300, 200, "test_rotation2", 0.0f, MATH_2PI, 0.0f, MATH_2PI / 32);
+    guimanager->AddTrackbar(20, 350, 200, "test_position2", 0.0f, 32.0f, 0.0f, 32.0f / 64.0f);
 
     InitD3D();
     materials->Init();
@@ -231,17 +232,20 @@ void Render::PopView()
 
 void Render::RenderFrame()
 {
-    m_Camera->Update();
+    double startFrameTime = GetCurtime();
 
+    m_Camera->Update();
+    GetTickCount();
     ShadowState_t cascade = m_ShadowStates.back();
     ViewSetup& view = cascade.view;
     float pitch = guimanager->GetElementByName<Trackbar>("light_pitch")->GetValue();
-    pitch = clamp(pitch, 0.0f, DirectX::XM_PIDIV2 - 0.0001f);
+    pitch = clamp(pitch, 0.0f, MATH_PIDIV2 - 0.0001f);
     float yaw = guimanager->GetElementByName<Trackbar>("light_yaw")->GetValue();
-    view.target = float3(0, 0, 0); //m_Camera->GetView().origin;
-    view.origin = float3(std::cosf(yaw)*std::cosf(pitch), std::sinf(yaw)*std::cosf(pitch), std::sinf(pitch)) * 500; // + view.target
+    view.target = m_Camera->GetView().origin;
+    view.origin = float3(std::cosf(yaw)*std::cosf(pitch), std::sinf(yaw)*std::cosf(pitch), std::sinf(pitch)) * 500 + view.target;
+
     view.ortho = true;
-    view.viewSize = float2(256, 256);
+    view.viewSize = float2(512, 512);
     view.width = 2048;
     view.height = 2048;
 
@@ -264,6 +268,8 @@ void Render::RenderFrame()
     PopView();
 
     m_SwapChain->Present(0, 0);
+
+    m_PreviousFrameTime = startFrameTime;
 
 }
 

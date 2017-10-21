@@ -6,6 +6,7 @@ cbuffer ConstantBuffer : register(b0)
     matrix matWorld;
     matrix matViewProjection;
     matrix matShadowToWorld;
+    float3 vs_viewPosition;
 
 }
 
@@ -41,24 +42,26 @@ struct VS_OUTPUT
 VS_OUTPUT vs_main(VS_INPUT Input)
 {
 	VS_OUTPUT Output;
-    Output.Position = mul(Input.Position, matWorld);
+    Output.Position = Input.Position;
+    Output.Position = mul(Output.Position, matWorld);
+    Output.Position.xyz += vs_viewPosition;
 
     Output.Texcoord = Input.Texcoord;
     Output.WorldPos = Output.Position.xyz;
     Output.ShadowPos = mul(Output.Position, matShadowToWorld);
 
     Output.Position = mul(Output.Position, matViewProjection);
-    Output.Normal   = Input.Normal;
-    Output.Tangent_S = Input.Tangent_S;
-    Output.Tangent_T = Input.Tangent_T;
+    Output.Normal   = mul(Input.Normal, matWorld);
+    Output.Tangent_S = mul(Input.Tangent_S, matWorld);
+    Output.Tangent_T = mul(Input.Tangent_T, matWorld);
     return Output;
 }
 
 float4 ps_main(VS_OUTPUT Input) : SV_Target
 {
     float3 albedo = txDiffuse.Sample(samLinear, Input.Texcoord).xyz;
-    float3 sun = pow(saturate(dot(-normalize(lightPos), normalize(Input.Normal))), 2048.0f);
-    sun += pow(saturate(dot(-normalize(lightPos), normalize(Input.Normal))), 8.0f) * pow(lightColor * 0.3f, 2.0f);
+    float3 sun = pow(saturate(dot(-normalize(lightPos - viewPosition), normalize(Input.Normal))), 2048.0f);
+    sun += pow(saturate(dot(-normalize(lightPos - viewPosition), normalize(Input.Normal))), 8.0f) * pow(lightColor * 0.3f, 2.0f);
 
     return float4(albedo + sun, 1.0f);
 

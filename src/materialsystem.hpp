@@ -7,7 +7,6 @@
 #include <vector>
 #include <memory>
 #include <d3d11.h>
-#include <DirectXMath.h>
 
 class VertexShader
 {
@@ -67,9 +66,10 @@ public:
     // TODO: overload this
     struct VSConstantBuffer
     {
-        DirectX::XMMATRIX matModelToWorld;
-        DirectX::XMMATRIX matWorldToCamera;
-        DirectX::XMMATRIX matShadowToWorld;
+        Matrix matModelToWorld;
+        Matrix matWorldToCamera;
+        Matrix matShadowToWorld;
+        float3_aligned viewPosition;
     };
 
     

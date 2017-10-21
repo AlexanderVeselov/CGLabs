@@ -5,7 +5,6 @@
 #include "utils.hpp"
 #include "mathlib.hpp"
 #include <d3d11.h>
-#include <DirectXMath.h>
 #include <vector>
 
 struct Vertex
@@ -36,19 +35,14 @@ struct MeshGroup_t
 class Mesh
 {
 public:
-    static Mesh CreateCylinder(int sides = 16, float height = 2.0f);
-    static Mesh CreateTorus(int segments = 16, int sides = 16, float radius1 = 2.0f, float radius2 = 0.5f);
-    static Mesh CreateSphere(int segments = 16, float radius = 1.0f);
-    static Mesh CreateCone(int sides = 16, float radius = 1.0f, float height = 2.0f);
-    static Mesh CreateTetrahedron(float size = 4.0f);
-
-    Mesh(const char* filename, const char* mtldir = nullptr, const DirectX::XMMATRIX& modelToWorld = DirectX::XMMatrixIdentity(), bool castShadow = true);
+    Mesh() {}
+    Mesh(const char* filename, const char* mtldir = nullptr, const Matrix& modelToWorld = Matrix::Identity(), bool castShadow = true);
     Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices);
-    const DirectX::XMMATRIX& GetModelToWorld() const { return m_ModelToWorld; }
+    const Matrix& GetModelToWorld() const { return m_ModelToWorld; }
 
-    void Draw(bool drawDepth = false) const;
+    virtual void Draw(bool drawDepth = false);
 
-private:
+protected:
     void InitBuffers();
     void LoadFromObj(const char* filename);
     void LoadFromDat(const char* filename);
@@ -61,18 +55,49 @@ private:
     std::vector<unsigned int> m_Indices;
     std::vector<MeshGroup_t> m_MeshGroups;
 
-    DirectX::XMMATRIX m_ModelToWorld;
+    Matrix m_ModelToWorld;
 
     bool m_CastShadow;
+    
+};
 
-#ifdef DEBUG_TANGENTS
-    ScopedObject<ID3D11Buffer> m_DbgVertexBuffer_n;
-    ScopedObject<ID3D11Buffer> m_DbgVertexBuffer_s;
-    ScopedObject<ID3D11Buffer> m_DbgVertexBuffer_t;
-    std::vector<Vertex> m_DbgNormals;
-    std::vector<Vertex> m_DbgTangent_s;
-    std::vector<Vertex> m_DbgTangent_t;
-#endif
+struct Plane_t
+{
+    float3 normal;
+    float  dist;
+};
+
+struct Neighbor_t
+{
+    unsigned int sideIndex;
+    unsigned int edgeIndex;
+};
+
+struct Side_t
+{
+    Plane_t plane;
+    float3 center;
+    std::vector<float3> positions;
+    std::vector<Neighbor_t> neighbors;
+
+};
+
+
+class AnimatedPolyhedron : public Mesh
+{
+public:
+    AnimatedPolyhedron(float3 origin);
+    virtual void Draw(bool drawDepth = false);
+
+private:
+    std::vector<unsigned int> m_Edges;
+    std::vector<Side_t> m_Sides;
+    float3 m_Velocity;
+    double m_PlaneAngle;
+    double m_CurrentAngle;
+    unsigned int m_CurrentSide;
+    unsigned int m_CurrentEdge;
+    float3 v1, v2;
 
 };
 
