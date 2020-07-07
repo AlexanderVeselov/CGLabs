@@ -1,6 +1,7 @@
 #include "render.hpp"
 #include "mathlib.hpp"
 #include "mesh.hpp"
+#include "particles.hpp"
 #include "inputsystem.hpp"
 #include "materialsystem.hpp"
 #include <d3dcompiler.h>
@@ -12,7 +13,7 @@ Render* render = &g_Render;
 void ViewSetup::ComputeMatrices()
 {
     matWorldToCamera = Matrix::LookAtLH(origin, target, up);
-        
+    matWorldToView = matWorldToCamera;
     // Projection Matrix
     if (ortho)
     {
@@ -151,32 +152,32 @@ void Render::InitD3D()
 
 void Render::InitScene()
 {    
-    //m_Meshes.push_back(std::make_shared<Mesh>("meshes/sponza.dat", "sponza"));
+    //m_Meshes.push_back(std::make_shared<Mesh>("meshes/sponza.dat", "sponza", Matrix::Translation(0.0f, 0.0f, 40.0f)));
     m_Meshes.push_back(std::make_shared<Mesh>("meshes/skysphere.obj", nullptr, Matrix::Scaling(100.0f, 100.0f, 100.0f), false));
-    m_Meshes.push_back(std::make_shared<AnimatedPolyhedron>(float3(0, 0, 10.0f)));
     m_Meshes.push_back(std::make_shared<Mesh>("meshes/axis.obj", nullptr, Matrix::Scaling(32.0f, 32.0f, 32.0f)));
     m_Meshes.push_back(std::make_shared<Mesh>("meshes/plane_1024.obj"));
-    //for (unsigned int i = 0; i < 10; ++i)
-    //{
-    //    float x = (float)rand() / RAND_MAX * 512.0f - 256.0f;
-    //    float y = (float)rand() / RAND_MAX * 512.0f - 256.0f;
-    //    m_Meshes.push_back(std::make_shared<AnimatedPolyhedron>(float3(x, y, 10.0f)));
-    //}
+    m_Meshes.push_back(std::make_shared<Mesh>("meshes/cylinder.obj"));
+
+    emitter = std::make_shared<RectangleEmitter>(float3(-32, 0, 72), float3(1, 0, 0), float2(32.0f, 32.0f));
+    m_ParticleEffects.push_back(std::make_shared<ParticleEffect>(emitter, 2000, "particle_smoke"));
+
     m_Camera = std::make_unique<Camera>(&m_Viewport);
 }
 
 void Render::Init(HWND hWnd)
-{
+{ 
     m_hWnd = hWnd;
     m_PreviousFrameTime = GetCurtime();
 
     guimanager->AddTrackbar(20, 100, 200, "light_pitch", 0.0f, MATH_PIDIV2, MATH_PIDIV4 * 0.5f, MATH_PIDIV2 / 32);
     guimanager->AddTrackbar(20, 150, 200, "light_yaw", 0.0f, MATH_2PI, MATH_PIDIV4, MATH_2PI / 32);
-    guimanager->AddTrackbar(20, 200, 200, "test_rotation1", 0.0f, MATH_2PI, 0.0f, MATH_2PI / 32);
-    guimanager->AddTrackbar(20, 250, 200, "test_position1", 0.0f, 32.0f, 0.0f, 32.0f / 64.0f);
-    guimanager->AddTrackbar(20, 300, 200, "test_rotation2", 0.0f, MATH_2PI, 0.0f, MATH_2PI / 32);
-    guimanager->AddTrackbar(20, 350, 200, "test_position2", 0.0f, 32.0f, 0.0f, 32.0f / 64.0f);
+    guimanager->AddTrackbar(20, 200, 200, "emitter_x", -128.0f, 128.0f, -32.0f, 8.0f);
+    guimanager->AddTrackbar(20, 250, 200, "emitter_y", -128.0f, 128.0f, 0.0f, 8.0f);
+    guimanager->AddTrackbar(20, 300, 200, "emitter_z", 0.0f, 128.0f, 72.0f, 8.0f);
 
+    guimanager->AddTrackbar(20, 350, 200, "emitter_pitch", 0.0f, MATH_PIDIV2, 0, MATH_PIDIV2 / 32);
+    guimanager->AddTrackbar(20, 400, 200, "emitter_yaw", 0.0f, MATH_2PI, 0, MATH_2PI / 32);
+    
     InitD3D();
     materials->Init();
     ShadowState_t shadowstate;
@@ -235,6 +236,17 @@ void Render::RenderFrame()
     double startFrameTime = GetCurtime();
 
     m_Camera->Update();
+    
+    float3 emitterOrigin;
+    emitterOrigin.x = guimanager->GetElementByName<Trackbar>("emitter_x")->GetValue();
+    emitterOrigin.y = guimanager->GetElementByName<Trackbar>("emitter_y")->GetValue();
+    emitterOrigin.z = guimanager->GetElementByName<Trackbar>("emitter_z")->GetValue();
+    emitter->SetOrigin(emitterOrigin);
+
+    float emitterPitch = guimanager->GetElementByName<Trackbar>("emitter_pitch")->GetValue();
+    float emitterYaw = guimanager->GetElementByName<Trackbar>("emitter_yaw")->GetValue();
+    emitter->SetAngle(AngleToVector(emitterPitch, emitterYaw));
+
     GetTickCount();
     ShadowState_t cascade = m_ShadowStates.back();
     ViewSetup& view = cascade.view;
@@ -242,7 +254,7 @@ void Render::RenderFrame()
     pitch = clamp(pitch, 0.0f, MATH_PIDIV2 - 0.0001f);
     float yaw = guimanager->GetElementByName<Trackbar>("light_yaw")->GetValue();
     view.target = m_Camera->GetView().origin;
-    view.origin = float3(std::cosf(yaw)*std::cosf(pitch), std::sinf(yaw)*std::cosf(pitch), std::sinf(pitch)) * 500 + view.target;
+    view.origin = AngleToVector(pitch, yaw) * 500 + view.target;
 
     view.ortho = true;
     view.viewSize = float2(512, 512);
@@ -260,6 +272,12 @@ void Render::RenderFrame()
         {
             for (std::vector<std::shared_ptr<Mesh> >::iterator it = m_Meshes.begin(); it != m_Meshes.end(); ++it)
             {
+                (*it)->Draw();
+            }
+
+            for (std::vector<std::shared_ptr<ParticleEffect> >::iterator it = m_ParticleEffects.begin(); it != m_ParticleEffects.end(); ++it)
+            {
+                (*it)->Update();
                 (*it)->Draw();
             }
         }

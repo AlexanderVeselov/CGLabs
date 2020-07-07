@@ -50,7 +50,7 @@ VertexShader::VertexShader(const char* filename) : m_Name(filename)
         { "TEXCOORD",  0, DXGI_FORMAT_R32G32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "TANGENT_S", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "TANGENT_T", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+        { "TANGENT_T", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
     };
 
     render->GetDevice()->CreateInputLayout(layout, ARRAYSIZE(layout),
@@ -254,6 +254,11 @@ std::shared_ptr<Material> MaterialSystem::FindMaterial(const char* filename)
                 material = std::make_shared<WorldMaterial>(file);
                 m_Materials[filename] = material;
             }
+            else if (strcmp(buffer, "particle") == 0)
+            {
+                material = std::make_shared<ParticleMaterial>(file);
+                m_Materials[filename] = material;
+            }
             else if (strcmp(buffer, "sky") == 0)
             {
                 material = std::make_shared<SkyMaterial>(file);
@@ -281,6 +286,7 @@ void Material::SetMaterial(const VSConstantBuffer& vsBuffer, const PSConstantBuf
 
     render->GetDeviceContext()->UpdateSubresource(m_PSConstantBuffer.Get(), 0, nullptr, &psBuffer, 0, 0);
     render->GetDeviceContext()->PSSetConstantBuffers(1, 1, &m_PSConstantBuffer);
+    render->GetDeviceContext()->OMSetBlendState(nullptr, 0, 0xffffffff);
 }
 
 void Material::InitConstantBuffers()
@@ -402,6 +408,71 @@ void WorldMaterial::SetMaterial(const VSConstantBuffer& vsBuffer, const PSConsta
     
 }
 
+ParticleMaterial::ParticleMaterial(FILE* file)
+{
+    m_VertexShader = materials->FindVertexShader("particle");
+    m_PixelShader = materials->FindPixelShader("particle");
+
+    D3D11_RASTERIZER_DESC rasterizerDesc;
+    ZeroMemory(&rasterizerDesc, sizeof(D3D11_RASTERIZER_DESC));
+    rasterizerDesc.FillMode = D3D11_FILL_SOLID;
+    rasterizerDesc.CullMode = D3D11_CULL_BACK;
+
+    char buffer[128];
+    while (fscanf(file, "%s", buffer) != EOF)
+    {
+        if (strcmp(buffer, "$albedo") == 0)
+        {
+            fscanf(file, "%s", buffer);
+            m_Albedo = materials->FindTexture(buffer);
+        }
+        else if (strcmp(buffer, "$nocull") == 0)
+        {
+            rasterizerDesc.CullMode = D3D11_CULL_NONE;
+        }
+        else if (strcmp(buffer, "$wireframe") == 0)
+        {
+            rasterizerDesc.FillMode = D3D11_FILL_WIREFRAME;
+        }
+    }
+
+    m_ShadowDepth = materials->FindTexture("_rt_ShadowDepth", TEXTURE_GROUP_SHADOW_DEPTH);
+    
+    render->GetDevice()->CreateRasterizerState(&rasterizerDesc, &m_RasterizerState);
+    InitConstantBuffers();
+
+    InitSampler(m_SamplerLinear, D3D11_FILTER_MIN_MAG_MIP_LINEAR);
+    render->GetDeviceContext()->PSSetSamplers(0, 1, &m_SamplerLinear);
+    InitSampler(m_SamplerShadowDepth, D3D11_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT, D3D11_TEXTURE_ADDRESS_CLAMP, D3D11_COMPARISON_LESS);
+    render->GetDeviceContext()->PSSetSamplers(1, 1, &m_SamplerShadowDepth);
+
+    D3D11_BLEND_DESC omDesc;
+    ZeroMemory(&omDesc, sizeof(D3D11_BLEND_DESC));
+    omDesc.AlphaToCoverageEnable = true;
+    omDesc.RenderTarget[0].BlendEnable = true;
+    omDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+    omDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+    omDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+    omDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ZERO;
+    omDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+    omDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+    omDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+    render->GetDevice()->CreateBlendState(&omDesc, &m_OpacityBlend);
+    
+
+}
+
+void ParticleMaterial::SetMaterial(const VSConstantBuffer& vsBuffer, const PSConstantBuffer& psBuffer) const
+{
+    m_Albedo->Set(0);
+    m_ShadowDepth->Set(1);
+    Material::SetMaterial(vsBuffer, psBuffer);
+    render->GetDeviceContext()->OMSetBlendState(m_OpacityBlend.Get(), 0, 0xffffffff);
+
+
+}
+
 SkyMaterial::SkyMaterial(FILE* file)
 {
     m_VertexShader = materials->FindVertexShader("sky");
@@ -435,22 +506,7 @@ SkyMaterial::SkyMaterial(FILE* file)
 
     InitSampler(m_SamplerLinear, D3D11_FILTER_MIN_MAG_MIP_LINEAR);
     render->GetDeviceContext()->PSSetSamplers(0, 1, &m_SamplerLinear);
-
-    /*
-    D3D11_BLEND_DESC omDesc;
-    ZeroMemory(&omDesc, sizeof(D3D11_BLEND_DESC));
-    omDesc.RenderTarget[0].BlendEnable = true;
-    omDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
-    omDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
-    omDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-    omDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-    omDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
-    omDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-    omDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-
-    render->GetDevice()->CreateBlendState(&omDesc, &m_OpacityBlend);
-    */
-
+    
 }
 
 void SkyMaterial::SetMaterial(const VSConstantBuffer& vsBuffer, const PSConstantBuffer& psBuffer) const

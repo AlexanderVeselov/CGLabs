@@ -103,6 +103,31 @@ inline float distance(const float3& a, const float3& b)
     return (b - a).length();
 }
 
+inline float3 reflect(const float3& vec, const float3& normal)
+{
+    return vec - normal * 2.0f * dot(vec, normal);
+}
+
+inline float3 AngleToVector(float pitch, float yaw)
+{
+    return float3(std::cosf(yaw)*std::cosf(pitch), std::sinf(yaw)*std::cosf(pitch), std::sinf(pitch));
+}
+
+struct Vertex
+{
+    Vertex() {}
+    Vertex(const float3& position, const float2& texcoord, const float3& normal)
+        : position(position), texcoord(texcoord), normal(normal)
+    {}
+
+    float3 position;
+    float2 texcoord;
+    float3 normal;
+    float3 tangent_s;
+    float3 tangent_t;
+
+};
+
 struct Matrix
 {
     static Matrix LookAtLH(const float3& eye, const float3& target, const float3& up = float3(0.0f, 0.0f, 1.0f));
@@ -117,6 +142,7 @@ struct Matrix
     static Matrix Translation(float x, float y, float z);
     static Matrix RotationAxis(const float3& axis, float angle);
     static Matrix RotationAxisAroundPoint(const float3& axis, const float3& point, float angle);
+    static Matrix Scaling(const float3& scale);
     static Matrix Scaling(float scalex, float scaley, float scalez);
 
     // Constructors
@@ -167,6 +193,9 @@ struct Matrix
 
     float m[4][4];
 };
+
+Matrix operator*(const Matrix&a, const Matrix& b);
+float3 operator*(const Matrix& mat, const float3& vec);
 
 template <typename T>
 inline T clamp(T value, T min, T max)

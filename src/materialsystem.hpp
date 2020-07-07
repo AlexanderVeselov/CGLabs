@@ -116,6 +116,21 @@ private:
 
 };
 
+class ParticleMaterial : public Material
+{
+public:
+    ParticleMaterial(FILE* file);
+    virtual void SetMaterial(const VSConstantBuffer& vsBuffer, const PSConstantBuffer& psBuffer) const;
+
+private:
+    std::shared_ptr<Texture> m_Albedo;
+    std::shared_ptr<Texture> m_ShadowDepth;
+    ScopedObject<ID3D11SamplerState> m_SamplerLinear;
+    ScopedObject<ID3D11SamplerState> m_SamplerShadowDepth;
+    ScopedObject<ID3D11BlendState> m_OpacityBlend;
+
+};
+
 class SkyMaterial : public Material
 {
 public:

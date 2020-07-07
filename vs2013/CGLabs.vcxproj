@@ -19,13 +19,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -85,6 +85,7 @@
     <ClCompile Include="..\src\matrix.cpp" />
     <ClCompile Include="..\src\mesh.cpp" />
     <ClCompile Include="..\src\render.cpp" />
+    <ClCompile Include="..\src\particles.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\dds.hpp" />
@@ -93,6 +94,7 @@
     <ClInclude Include="..\src\materialsystem.hpp" />
     <ClInclude Include="..\src\mathlib.hpp" />
     <ClInclude Include="..\src\mesh.hpp" />
+    <ClInclude Include="..\src\particles.hpp" />
     <ClInclude Include="..\src\render.hpp" />
     <ClInclude Include="..\src\utils.hpp" />
   </ItemGroup>

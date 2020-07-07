@@ -7,21 +7,6 @@
 #include <d3d11.h>
 #include <vector>
 
-struct Vertex
-{
-    Vertex() {}
-    Vertex(const float3& position, const float2& texcoord, const float3& normal)
-        : position(position), texcoord(texcoord), normal(normal)
-    {}
-
-    float3 position;
-    float2 texcoord;
-    float3 normal;
-    float3 tangent_s;
-    float3 tangent_t;
-
-};
-
 class Material;
 
 struct MeshGroup_t
@@ -38,6 +23,7 @@ public:
     Mesh() {}
     Mesh(const char* filename, const char* mtldir = nullptr, const Matrix& modelToWorld = Matrix::Identity(), bool castShadow = true);
     Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices);
+    const void SetTransform(const Matrix& transform) { m_ModelToWorld = transform; }
     const Matrix& GetModelToWorld() const { return m_ModelToWorld; }
 
     virtual void Draw(bool drawDepth = false);
@@ -49,7 +35,7 @@ protected:
     void SaveToDat(const char* filename) const;
 
     ScopedObject<ID3D11Buffer> m_VertexBuffer;
-    ScopedObject<ID3D11Buffer> m_IndexBuffer;    
+    ScopedObject<ID3D11Buffer> m_IndexBuffer;
 
     std::vector<Vertex> m_Vertices;
     std::vector<unsigned int> m_Indices;

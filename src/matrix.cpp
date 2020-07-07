@@ -139,6 +139,13 @@ Matrix Matrix::Translation(const float3& translation)
         0.0f, 0.0f, 0.0f, 1.0f);
 }
 
+Matrix Matrix::Scaling(const float3& scale)
+{
+    return Matrix(scale.x, 0.0f, 0.0f, 0.0f,
+        0.0f, scale.y, 0.0f, 0.0f,
+        0.0f, 0.0f, scale.z, 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f);
+}
 
 Matrix Matrix::Scaling(float scalex, float scaley, float scalez)
 {
@@ -185,6 +192,47 @@ mResult.m[3][1] = (M2.m[0][1] * x) + (M2.m[1][1] * y) + (M2.m[2][1] * z) + (M2.m
 mResult.m[3][2] = (M2.m[0][2] * x) + (M2.m[1][2] * y) + (M2.m[2][2] * z) + (M2.m[3][2] * w);
 mResult.m[3][3] = (M2.m[0][3] * x) + (M2.m[1][3] * y) + (M2.m[2][3] * z) + (M2.m[3][3] * w);
 */
+
+Matrix operator*(const Matrix&a, const Matrix& b)
+{
+    Matrix result;
+    float x = a.m[0][0];
+    float y = a.m[0][1];
+    float z = a.m[0][2];
+    float w = a.m[0][3];
+    // Perform the operation on the first row
+    result.m[0][0] = (b.m[0][0] * x) + (b.m[1][0] * y) + (b.m[2][0] * z) + (b.m[3][0] * w);
+    result.m[0][1] = (b.m[0][1] * x) + (b.m[1][1] * y) + (b.m[2][1] * z) + (b.m[3][1] * w);
+    result.m[0][2] = (b.m[0][2] * x) + (b.m[1][2] * y) + (b.m[2][2] * z) + (b.m[3][2] * w);
+    result.m[0][3] = (b.m[0][3] * x) + (b.m[1][3] * y) + (b.m[2][3] * z) + (b.m[3][3] * w);
+    // Repeat for all the other rows
+    x = a.m[1][0];
+    y = a.m[1][1];
+    z = a.m[1][2];
+    w = a.m[1][3];
+    result.m[1][0] = (b.m[0][0] * x) + (b.m[1][0] * y) + (b.m[2][0] * z) + (b.m[3][0] * w);
+    result.m[1][1] = (b.m[0][1] * x) + (b.m[1][1] * y) + (b.m[2][1] * z) + (b.m[3][1] * w);
+    result.m[1][2] = (b.m[0][2] * x) + (b.m[1][2] * y) + (b.m[2][2] * z) + (b.m[3][2] * w);
+    result.m[1][3] = (b.m[0][3] * x) + (b.m[1][3] * y) + (b.m[2][3] * z) + (b.m[3][3] * w);
+    x = a.m[2][0];
+    y = a.m[2][1];
+    z = a.m[2][2];
+    w = a.m[2][3];
+    result.m[2][0] = (b.m[0][0] * x) + (b.m[1][0] * y) + (b.m[2][0] * z) + (b.m[3][0] * w);
+    result.m[2][1] = (b.m[0][1] * x) + (b.m[1][1] * y) + (b.m[2][1] * z) + (b.m[3][1] * w);
+    result.m[2][2] = (b.m[0][2] * x) + (b.m[1][2] * y) + (b.m[2][2] * z) + (b.m[3][2] * w);
+    result.m[2][3] = (b.m[0][3] * x) + (b.m[1][3] * y) + (b.m[2][3] * z) + (b.m[3][3] * w);
+    x = a.m[3][0];
+    y = a.m[3][1];
+    z = a.m[3][2];
+    w = a.m[3][3];
+    result.m[3][0] = (b.m[0][0] * x) + (b.m[1][0] * y) + (b.m[2][0] * z) + (b.m[3][0] * w);
+    result.m[3][1] = (b.m[0][1] * x) + (b.m[1][1] * y) + (b.m[2][1] * z) + (b.m[3][1] * w);
+    result.m[3][2] = (b.m[0][2] * x) + (b.m[1][2] * y) + (b.m[2][2] * z) + (b.m[3][2] * w);
+    result.m[3][3] = (b.m[0][3] * x) + (b.m[1][3] * y) + (b.m[2][3] * z) + (b.m[3][3] * w);
+
+    return result;
+}
 
 Matrix Matrix::operator*(const Matrix& other)
 {
@@ -259,6 +307,13 @@ float3 Matrix::operator*(const float3& vec)
     return float3(m[0][0] * vec.x + m[0][1] * vec.y + m[0][2] * vec.z + m[0][3],
         m[1][0] * vec.x + m[1][1] * vec.y + m[1][2] * vec.z + m[1][3],
         m[2][0] * vec.x + m[2][1] * vec.y + m[2][2] * vec.z + m[2][3]);
+}
+
+float3 operator*(const Matrix& mat, const float3& vec)
+{
+        return float3(mat.m[0][0] * vec.x + mat.m[0][1] * vec.y + mat.m[0][2] * vec.z + mat.m[0][3],
+            mat.m[1][0] * vec.x + mat.m[1][1] * vec.y + mat.m[1][2] * vec.z + mat.m[1][3],
+            mat.m[2][0] * vec.x + mat.m[2][1] * vec.y + mat.m[2][2] * vec.z + mat.m[2][3]);
 }
 
 Matrix Matrix::Inverse() const

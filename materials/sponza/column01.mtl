@@ -1,0 +1,4 @@
+$mtl world
+$albedo sponza/sponza_column_b_diff
+$normal sponza/sponza_column_b_ddn
+$spec sponza/sponza_column_b_spec

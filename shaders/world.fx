@@ -82,11 +82,12 @@ float4 ps_main(VS_OUTPUT Input) : SV_Target
 {
     float3 albedo = txDiffuse.Sample(samLinear, Input.Texcoord).xyz;
     float3 spec = txSpec.Sample(samLinear, Input.Texcoord).xyz;
-    
+
     float3x3 matTangentToWorld = transpose(float3x3(Input.Tangent_S, Input.Tangent_T, Input.Normal));
     float3 normal = txNormal.Sample(samLinear, Input.Texcoord).xyz * 2.0f - 1.0f;
     normal = normalize(mul(matTangentToWorld, normal));
 
+    float rimLight = 1.0f - saturate(dot(normal, normalize(viewPosition - Input.WorldPos)));
     float3 diffuse = max(dot(normalize(lightPos.xyz - viewPosition.xyz), normal), 0.0f) * lightColor;
     float3 ambient = float3(0.3, 0.5, 0.8) * 0.5f;
 
@@ -97,11 +98,12 @@ float4 ps_main(VS_OUTPUT Input) : SV_Target
     ShadowPos.y = -Input.ShadowPos.y / Input.ShadowPos.w * 0.5f + 0.5f;
     ShadowPos.z =  Input.ShadowPos.z / Input.ShadowPos.w;
     float3 shadow = PCF(ShadowPos);
-
+    
     float fog = saturate(distance(viewPosition, Input.WorldPos) / 512.0f);
+    float3 fogColor = ambient + lightColor * 0.25f;
 
-    float3 result = albedo * (ambient + diffuse * shadow) + phong * shadow * spec;
-    result = lerp(result, (ambient + lightColor * 0.25f), fog);
+    float3 result = albedo * (ambient + diffuse * shadow) + phong * shadow * spec + pow(rimLight, 2.0f) * fogColor * 0.25f * spec;
+    result = lerp(result, fogColor, fog);
     return float4(result, 1.0f);
 
 }

@@ -12,13 +12,15 @@
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ee418725.aspx#type_usage_guidelines_
 // On Windows x64, all heap allocations are 16-byte aligned, but for Windows x86, they are only 8-byte aligned.
 //#define _XM_NO_INTRINSICS_
-#include <DirectXMath.h>
+//#include <DirectXMath.h>
 
 struct Vertex;
 struct ViewSetup;
 class Mesh;
 class Camera;
 class Texture;
+class ParticleEffect;
+class ParticleEmitter;
 
 struct ViewSetup
 {
@@ -49,6 +51,8 @@ struct ViewSetup
     float nearZ;
 
     Matrix matWorldToCamera;
+    Matrix matWorldToView;
+    Matrix matViewToProjection;
 
 };
 
@@ -91,6 +95,8 @@ private:
     double m_PreviousFrameTime;
 
     std::vector<std::shared_ptr<Mesh> > m_Meshes;
+    std::vector<std::shared_ptr<ParticleEffect> > m_ParticleEffects;
+    std::shared_ptr<ParticleEmitter> emitter;
     std::vector<ViewSetup> m_ViewStack;
     std::unique_ptr<Camera> m_Camera;
 

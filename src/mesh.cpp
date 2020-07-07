@@ -384,7 +384,8 @@ void Mesh::LoadFromObj(const char* filename)
                     indexDictionary[triple] = newIndex;
                     m_Indices.push_back(newIndex++);
                 }
-                ++meshGroup.indexCount;            }
+                ++meshGroup.indexCount;
+            }
             break;
         case ObjReader::OBJ_SMOOTHINGGROUP:
             break;
@@ -681,10 +682,10 @@ AnimatedPolyhedron::AnimatedPolyhedron(float3 origin) : m_Velocity(1.0f, 0.0f, 0
     planes.push_back({ float3( 0,  1,  0), 8 });
     planes.push_back({ float3( 0, -1,  0), 8 });
 
-    for (unsigned int i = 0; i < 8; ++i)
+    for (unsigned int i = 0; i < 16; ++i)
     {
         float yaw = (float)rand() / RAND_MAX * MATH_2PI;
-        float pitch = - (float)rand() / RAND_MAX * MATH_2PI * 0.9f;
+        float pitch = - (float)rand() / RAND_MAX * MATH_2PI;
         float3 n(std::cosf(yaw)*std::cosf(pitch), std::sinf(yaw)*std::cosf(pitch), std::sinf(pitch));
         planes.push_back({ n, 8 });
     }

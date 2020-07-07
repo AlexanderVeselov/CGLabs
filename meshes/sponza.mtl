@@ -1,0 +1,355 @@
+# 3ds Max Wavefront OBJ Exporter v0.97b - (c)2007 guruware
+# File Created: 14.10.2017 01:58:07
+
+newmtl leaf
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_thorn_diff.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_thorn_diff.tga
+	map_d D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_thorn_mask.tga
+	map_bump D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_thorn_ddn.tga
+	bump D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_thorn_ddn.tga
+
+newmtl vase_plant
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\vase_plant.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\vase_plant.tga
+	map_d D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\vase_plant_mask.tga
+
+newmtl background
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\background.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\background.tga
+	map_bump D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\background_ddn.tga
+	bump D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\background_ddn.tga
+
+newmtl bricks
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\spnza_bricks_a_diff.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\spnza_bricks_a_diff.tga
+	map_bump D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\spnza_bricks_a_diff.tga
+	bump D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\spnza_bricks_a_diff.tga
+
+newmtl arch
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_arch_diff.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_arch_diff.tga
+
+newmtl ceiling
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_ceiling_a_diff.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_ceiling_a_diff.tga
+
+newmtl column03
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_column_a_diff.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_column_a_diff.tga
+	map_bump D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_column_a_ddn.tga
+	bump D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_column_a_ddn.tga
+
+newmtl floor
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_floor_a_diff.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_floor_a_diff.tga
+
+newmtl column02
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_column_c_diff.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_column_c_diff.tga
+	map_bump D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_column_c_ddn.tga
+	bump D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_column_c_ddn.tga
+
+newmtl details
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_details_diff.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_details_diff.tga
+
+newmtl column01
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_column_b_diff.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_column_b_diff.tga
+	map_bump D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_column_b_ddn.tga
+	bump D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_column_b_ddn.tga
+
+newmtl Material__47
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+
+newmtl flagpole
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_flagpole_diff.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_flagpole_diff.tga
+
+newmtl fabric_green02
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_fabric_green_diff.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_fabric_green_diff.tga
+
+newmtl fabric_blue02
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_fabric_blue_diff.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_fabric_blue_diff.tga
+
+newmtl fabric_a
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_fabric_diff.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_fabric_diff.tga
+
+newmtl fabric_blue01
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_curtain_blue_diff.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_curtain_blue_diff.tga
+
+newmtl fabric_red
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_curtain_diff.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_curtain_diff.tga
+
+newmtl fabric_green01
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_curtain_green_diff.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_curtain_green_diff.tga
+
+newmtl chain
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\chain_texture.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\chain_texture.tga
+	map_d D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\chain_texture_mask.tga
+	map_bump D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\chain_texture_ddn.tga
+	bump D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\chain_texture_ddn.tga
+
+newmtl vase_hanging
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\vase_hanging.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\vase_hanging.tga
+
+newmtl vase
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\vase_dif.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\vase_dif.tga
+
+newmtl lion
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\lion.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\lion.tga
+	map_bump D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\lion_ddn.tga
+	bump D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\lion_ddn.tga
+
+newmtl roof
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5880 0.5880 0.5880
+	Kd 0.5880 0.5880 0.5880
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_roof_diff.tga
+	map_Kd D:\Users\KAJAJJJ\Documents\3dsMax\scenes\sponza\textures\sponza_roof_diff.tga
